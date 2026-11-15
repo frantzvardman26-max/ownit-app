@@ -26,6 +26,7 @@ jobs:
           - { module: rexvoice, apk: RexVoice, key: rexvoice/signing/upload.jks.enc, alias: rv-upload }
           - { module: freelane, apk: FreeLane, key: freelane/signing/upload.jks.enc, alias: fl-upload }
           - { module: lovly, apk: Lovly, key: lovly/signing/upload.jks.enc, alias: lv-upload }
+          - { module: reclaim, apk: Reclaim, key: reclaim/signing/upload.jks.enc, alias: rc-upload }
     steps:
       - uses: actions/checkout@v4
         with:
