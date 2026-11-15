@@ -55,7 +55,8 @@ jobs:
           get PureBeats.apk https://github.com/frantzvardman26-max/ownit-app/releases/download/purebeats/PureBeats.apk
           get SignalFire.apk https://github.com/frantzvardman26-max/ownit-app/releases/download/signalfire/SignalFire.apk
           get ClearCheck.apk https://github.com/frantzvardman26-max/ownit-app/releases/download/clearcheck/ClearCheck.apk
-          get RexVoice.apk https://github.com/frantzvardman26-max/ownit-app/releases/download/rexvoice/RexVoice.apk
+          # Rex Voice is left out: ~220 MB with its voice model, over GitHub's 100 MB file limit for this branch.
+          find repo -name "*.apk" -size +95M -print -delete
           ls -la repo
       - name: App descriptions
         run: |
