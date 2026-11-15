@@ -65,7 +65,7 @@ jobs:
       - name: App descriptions
         run: |
           cd fd/metadata
-          m() { printf 'Name: %s\nAuthorName: Frantz Vardman\nWebSite: https://shop.frantzmichaelsthilairevardman.com\nCategories:\n  - %s\nSummary: %s\nDescription: |\n  %s\n' "$5" "$2" "$3" "$4" > "$1.yml"; }
+          m() { printf 'Name: "%s"\nAuthorName: Frantz Vardman\nWebSite: https://shop.frantzmichaelsthilairevardman.com\nCategories:\n  - %s\nSummary: "%s"\nDescription: |\n  %s\n' "$5" "$2" "$3" "$4" > "$1.yml"; }
           m com.ownit.app Multimedia "Music contracts, royalties and business tools for artists" "Scan contracts, track royalties, invoices and shows. No account, no ads." "Own It"
           m com.safetospend.app Money "Know what's safe to spend until payday" "Offline budget app: bills, debts, subscriptions and a cash-flow timeline. No bank login." "Safe to Spend"
           m com.leadhunter.app Office "Lead finder for roofing and window teams" "Find, track and follow up on leads." "Lead Hunter"
