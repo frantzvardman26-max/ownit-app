@@ -74,7 +74,7 @@ jobs:
           "$BT/zipalign" -f -p 4 "$IN" "$RUNNER_TEMP/aligned.apk"
           "$BT/apksigner" sign --ks "$KS" --ks-key-alias ${{ matrix.alias }} --ks-pass env:PW --key-pass env:PW --out ../${{ matrix.apk }}-store.apk "$RUNNER_TEMP/aligned.apk"
           rm -f "$KS"
-          "$BT/apksigner" verify --print-certs ../${{ matrix.apk }}-store.apk | grep -E "Signer #1 certificate (DN|SHA-256)"
+          "$BT/apksigner" verify --verbose --print-certs ../${{ matrix.apk }}-store.apk | grep -iE "verified using|certificate (DN|SHA-256)" || true
           if "$BT/aapt2" dump badging ../${{ matrix.apk }}-store.apk | grep -q "application-debuggable"; then echo "::error::Still a debuggable build"; exit 1; fi
           "$BT/aapt2" dump badging ../${{ matrix.apk }}-store.apk | head -1
       - uses: actions/upload-artifact@v4

@@ -28,3 +28,18 @@ jobs:
           npx --yes wrangler@3 pages project list | grep -q "fv-freelane" || npx --yes wrangler@3 pages project create fv-freelane --production-branch main
           npx --yes wrangler@3 pages deploy . --project-name fv-freelane --branch main --commit-dirty=true
           echo "Live: https://fv-freelane.pages.dev"
+      - name: Tell search engines about new pages (IndexNow, no account)
+        if: success()
+        run: |
+          python3 - "freelane-site/dist" "fv-freelane.pages.dev" <<'PY'
+          import json, re, sys, glob, os, urllib.request
+          dist, host = sys.argv[1], sys.argv[2]
+          keys = [os.path.basename(f)[:-4] for f in glob.glob(dist + '/*.txt') if re.fullmatch(r'[0-9a-f]{32}', os.path.basename(f)[:-4])]
+          if not keys: print('no IndexNow key file'); sys.exit(0)
+          urls = re.findall(r'<loc>([^<]+)</loc>', open(dist + '/sitemap.xml').read())[:10000]
+          body = json.dumps({"host": host, "key": keys[0], "keyLocation": f"https://{host}/{keys[0]}.txt", "urlList": urls}).encode()
+          try:
+              r = urllib.request.urlopen(urllib.request.Request("https://api.indexnow.org/indexnow", data=body, headers={"Content-Type": "application/json; charset=utf-8"}), timeout=30)
+              print("IndexNow:", r.status, len(urls), "pages")
+          except Exception as e: print("IndexNow not accepted (fine, retried next deploy):", e)
+          PY
