@@ -54,6 +54,7 @@ jobs:
           check lovly android/lovly $SHARED
           check reclaim android/reclaim $SHARED
           check bayouburger android/bayouburger $SHARED
+          check panel android/panel $SHARED
           check shop-verify shop
           check freelane-site freelane-site android/freelane/docs
           cd state && git add -A
