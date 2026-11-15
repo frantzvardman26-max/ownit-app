@@ -5,7 +5,9 @@ Writes explore/report.md and a screenshot per tap. Usage: explore.py <apk dir> <
 import hashlib, os, re, subprocess, sys, time, xml.etree.ElementTree as ET
 APKS, OUT = sys.argv[1], sys.argv[2]; os.makedirs(OUT, exist_ok=True)
 BT = sorted(os.listdir('/usr/local/lib/android/sdk/build-tools'))[-1]
-def sh(*a, timeout=60): return subprocess.run(a, capture_output=True, text=True, timeout=timeout).stdout
+def sh(*a, timeout=60):
+    try: return subprocess.run(a, capture_output=True, text=True, errors='replace', timeout=timeout).stdout
+    except subprocess.TimeoutExpired: return ''
 def adb(*a, **k): return sh('adb', *a, **k)
 def dump():
     adb('shell', 'uiautomator', 'dump', '/sdcard/ui.xml'); x = adb('shell', 'cat', '/sdcard/ui.xml')
@@ -39,7 +41,7 @@ for apk in sorted(os.listdir(APKS)):
     if 'Success' not in r: report += [f'Install failed: {r.strip()[:200]}', '']; continue
     launch(pkg); base = dump(); items = nodes(base, pkg)[:24]; base_sig = sig(base, pkg)
     d = os.path.join(OUT, apk[:-4]); os.makedirs(d, exist_ok=True)
-    adb('exec-out', 'screencap', '-p', timeout=30); subprocess.run(f'adb exec-out screencap -p > "{d}/00-start.png"', shell=True)
+    subprocess.run(f'adb exec-out screencap -p > "{d}/00-start.png"', shell=True)
     report.append(f'{len(items)} clickable items on the first screen.'); report.append('')
     report.append('| # | Button | Result |'); report.append('|---|---|---|')
     for i, (label, x, y) in enumerate(items, 1):
