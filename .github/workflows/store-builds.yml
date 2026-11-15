@@ -25,6 +25,7 @@ jobs:
           - { module: clearcheck, apk: ClearCheck, key: clearcheck/signing/upload.jks.enc, alias: cc-upload }
           - { module: rexvoice, apk: RexVoice, key: rexvoice/signing/upload.jks.enc, alias: rv-upload }
           - { module: freelane, apk: FreeLane, key: freelane/signing/upload.jks.enc, alias: fl-upload }
+          - { module: lovly, apk: Lovly, key: lovly/signing/upload.jks.enc, alias: lv-upload }
     steps:
       - uses: actions/checkout@v4
         with:

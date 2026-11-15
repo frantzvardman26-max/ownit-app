@@ -51,6 +51,7 @@ jobs:
           check clearcheck android/clearcheck $SHARED
           check rexvoice android/rexvoice $SHARED
           check freelane android/freelane $SHARED
+          check lovly android/lovly $SHARED
           check shop-verify shop
           check freelane-site freelane-site android/freelane/docs
           cd state && git add -A
