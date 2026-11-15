@@ -133,7 +133,9 @@ jobs:
           entry() { # package-hint url name summary icon "shots"
             curl -fsSL --retry 3 -o "$T/a.apk" "$2" || { echo "::warning::no $3"; return 0; }
             B=$("$BT/aapt2" dump badging "$T/a.apk" | head -1)
-            PKG=$(echo "$B" | sed -E "s/.*name='([^']+)'.*/\1/"); VC=$(echo "$B" | sed -E "s/.*versionCode='([^']+)'.*/\1/"); VN=$(echo "$B" | sed -E "s/.*versionName='([^']+)'.*/\1/")
+            # Anchored matches: newer aapt2 adds compileSdkVersionCodename='16', which a loose "name='" match picked up as the package.
+            PKG=$(echo "$B" | sed -E "s/^package: name='([^']+)'.*/\1/"); VC=$(echo "$B" | sed -E "s/.* versionCode='([^']+)'.*/\1/"); VN=$(echo "$B" | sed -E "s/.* versionName='([^']+)'.*/\1/")
+            echo "$PKG" | grep -Eq '^[a-zA-Z][a-zA-Z0-9_]*(\.[a-zA-Z][a-zA-Z0-9_]*)+$' || { echo "::error::Bad package name '$PKG' for $3"; exit 1; }
             SHA=$(sha256sum "$T/a.apk" | cut -d' ' -f1); SZ=$(stat -c%s "$T/a.apk")
             python3 - "$PKG" "$VC" "$VN" "$SHA" "$SZ" "$2" "$3" "$4" "$5" "$6" <<'PY'
           import json, sys, os
