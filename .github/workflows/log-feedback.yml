@@ -1,0 +1,33 @@
+name: Log tester feedback (received outside Beta Lane)
+# Records feedback a tester sent by text, call or email into Beta Lane, word for word, with where and when it came in.
+# Runs once per piece of feedback; running it twice with the same words and time doesn't duplicate it.
+on:
+  workflow_dispatch:
+    inputs:
+      partner: { description: 'Partner name as in the control panel (e.g. John Victor)', required: true }
+      at: { description: 'When it was received, UTC (e.g. 2026-11-15T21:44:00Z)', required: true }
+      kind: { description: 'bug, idea, love or confusing', required: true, default: idea }
+      app: { description: 'App id, or general / shop', required: true, default: general }
+      text: { description: "The tester's words, exactly as sent", required: true }
+      source: { description: 'Channel and who logged it', required: true }
+permissions: { contents: read }
+jobs:
+  log:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      PARTNER: ${{ inputs.partner }}
+      AT: ${{ inputs.at }}
+      KIND: ${{ inputs.kind }}
+      APP: ${{ inputs.app }}
+      TEXT: ${{ inputs.text }}
+      SOURCE: ${{ inputs.source }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Save it
+        run: |
+          python3 .github/log_feedback.py
+          npx -y wrangler@3 d1 execute shop-downloads --remote --file feedback.sql
+          echo "--- John's feedback on record now:"
+          npx -y wrangler@3 d1 execute shop-downloads --remote --json --command "SELECT f.at, f.app, f.kind, f.device FROM beta_feedback f JOIN partners p ON p.beta_code = f.code WHERE p.name = '${PARTNER//\'/}' ORDER BY f.at" | jq -r '.[0].results[] | "\(.at) \(.app) \(.kind) | \(.device)"'
