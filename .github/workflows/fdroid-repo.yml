@@ -68,7 +68,7 @@ jobs:
           m com.safetospend.app Money "Know what's safe to spend until payday" "Offline budget app: bills, debts, subscriptions and a cash-flow timeline. No bank login." "Safe to Spend"
           m com.leadhunter.app Office "Lead finder for roofing and window teams" "Find, track and follow up on leads." "Lead Hunter"
           m com.frantzvardman.safepocket Security "Keep your ID and papers safe on your phone" "Encrypted vault, reminders and help guides in English, Spanish and Haitian Creole. No internet permission." "Safe Pocket"
-          m com.frantzvardman.crownrush Games "Catch the gold, dodge the bombs" "Bombs & Bullion: a one-thumb arcade game with power-ups, missions and the Bomb King. Offline." "Bombs & Bullion"
+          m com.frantzvardman.crownrush Games "Catch the gold, dodge the bombs" "Bombs & Bullion: a one-thumb arcade game starring 10 animal superheroes. Catch the gold, dodge the bombs, grab the lightning to unleash your hero's power, and beat the Bomb King. Offline." "Bombs & Bullion"
           m com.frantzvardman.purebeats Multimedia "100% original beats made on your phone" "No samples, no loops. Export the beat, 7 stems and a certificate of originality." "Pure Beats"
           m com.frantzvardman.signalfire Connectivity "Stay in touch with people nearby when there's no signal" "Phone-to-phone chat, supplies board, shared places and sourced first aid. No internet needed." "Signal Fire"
           m com.frantzvardman.clearcheck Office "A plain-English check-up for your business" "Paperwork, red flags, money and plain talk: a score, a fix list with official sources and a PDF report." "Clear Check"
@@ -88,7 +88,7 @@ jobs:
           shots() { T=$(mktemp -d); git clone -q --depth 1 -b "$2" "https://x-access-token:${GT}@github.com/${GITHUB_REPOSITORY}.git" "$T" 2>/dev/null || { echo "::warning::no $2"; return 0; }
             i=1; for f in $3; do [ -f "$T/$f" ] && cp "$T/$f" "metadata/$1/en-US/phoneScreenshots/$i.png" && i=$((i+1)); done; }
           shots com.frantzvardman.safepocket sp-screens "en-1-papers.png en-2-dates.png en-4-guides.png 07-lock.png"
-          shots com.frantzvardman.crownrush cr-screens "cr-1-title.png cr-2-playing.png cr-3-level-up.png cr-6-results.png"
+          shots com.frantzvardman.crownrush cr-screens "cr-1-title.png cr-2-playing.png cr-4b-hero-profile.png cr-7-roster.png"
           shots com.frantzvardman.purebeats pb-screens "pb-1-home.png"
           shots com.frantzvardman.signalfire sf-screens "sf-1-nearby.png sf-2-supplies.png sf-3-places.png sf-4-aid.png"
           shots com.frantzvardman.clearcheck cc-screens "cc-1-home-empty.png cc-2-question.png cc-3-home-scored.png cc-4-report.png"
