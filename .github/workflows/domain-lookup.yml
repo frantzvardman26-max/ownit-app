@@ -1,0 +1,21 @@
+name: Domain lookup
+# Checks whether domain names are taken, using the public registry lookup (RDAP). Read-only; buys nothing.
+on:
+  workflow_dispatch:
+    inputs:
+      names:
+        description: "Space-separated domain names"
+        required: true
+jobs:
+  look:
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          NAMES: ${{ inputs.names }}
+        run: |
+          for d in $NAMES; do
+            code=$(curl -s -o /tmp/r.json -w "%{http_code}" -L --max-time 20 "https://rdap.org/domain/$d")
+            if [ "$code" = "404" ]; then echo "RESULT $d AVAILABLE"
+            elif [ "$code" = "200" ]; then echo "RESULT $d TAKEN $(python3 -c "import json;d=json.load(open('/tmp/r.json'));print([e.get('eventDate','')[:10] for e in d.get('events',[]) if e.get('eventAction')=='registration'])" 2>/dev/null)"
+            else echo "RESULT $d UNKNOWN ($code)"; fi
+          done
