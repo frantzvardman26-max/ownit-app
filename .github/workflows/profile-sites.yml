@@ -1,0 +1,42 @@
+name: Profile sites (GitHub profile README + github.io)
+# Publishes profile/readme -> frantzvardman26-max/frantzvardman26-max (shown on the GitHub profile)
+# and profile/site -> frantzvardman26-max/frantzvardman26-max.github.io (GitHub Pages). Creates the repos if missing.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['profile/**']
+permissions:
+  contents: read
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.BUILD_TOKEN }}
+      OWNER: frantzvardman26-max
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create repos if missing
+        run: |
+          for r in "$OWNER" "$OWNER.github.io"; do
+            if gh api "repos/$OWNER/$r" >/dev/null 2>&1; then echo "exists: $r"; else
+              gh api -X POST user/repos -f name="$r" -F private=false -f description="Frantz Vardman: Android apps, Free Lane and AceThe_Kid" -f homepage="https://shop.frantzmichaelsthilairevardman.com/about" >/dev/null && echo "created: $r"; fi
+          done
+      - name: Push content
+        run: |
+          push() { src=$1; repo=$2; d=$(mktemp -d); cp -r "$src"/. "$d"/; cd "$d"
+            git init -q -b main; git add -A
+            git -c user.name="Frantz Vardman" -c user.email="frantzvardman26-max@users.noreply.github.com" commit -qm "Update profile"
+            git push -q -f "https://x-access-token:${GH_TOKEN}@github.com/$OWNER/$repo.git" main; cd - >/dev/null; echo "pushed: $repo"; }
+          push profile/readme "$OWNER"
+          push profile/site "$OWNER.github.io"
+      - name: Turn on GitHub Pages
+        run: |
+          gh api "repos/$OWNER/$OWNER.github.io/pages" >/dev/null 2>&1 && echo "pages already on" || \
+            gh api -X POST "repos/$OWNER/$OWNER.github.io/pages" -f 'source[branch]=main' -f 'source[path]=/' >/dev/null && echo "pages on"
+      - name: Profile website field (needs the token's user scope; skipped if missing)
+        run: gh api -X PATCH user -f name="Frantz Vardman" -f blog="https://shop.frantzmichaelsthilairevardman.com/about" -f bio="Android apps, Free Lane app store, AceThe_Kid beats" >/dev/null && echo "profile updated" || echo "no user scope: profile fields unchanged"
+      - name: Tell search engines
+        run: |
+          sleep 60
+          curl -s -o /dev/null -w "IndexNow: %{http_code}\n" "https://api.indexnow.org/indexnow?url=https://shop.frantzmichaelsthilairevardman.com/about&key=9ca00d25c546a655601aaaf368587803" || true
