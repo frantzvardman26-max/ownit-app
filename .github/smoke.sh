@@ -1,4 +1,5 @@
 #!/bin/bash
+exec > >(tee smoke.out) 2>&1
 BT=/usr/local/lib/android/sdk/build-tools/$(ls /usr/local/lib/android/sdk/build-tools | sort -V | tail -1)
 for f in apks/*.apk;
 do echo "=================== $f";

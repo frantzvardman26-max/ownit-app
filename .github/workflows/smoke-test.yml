@@ -1,5 +1,8 @@
 name: Smoke test (install the published apps on a real Android emulator, open each, catch crashes)
 on:
+  workflow_run:
+    workflows: ["F-Droid app library"]
+    types: [completed]
   workflow_dispatch:
     inputs:
       api: {description: 'Android API level', required: false, default: '34'}
@@ -19,17 +22,18 @@ jobs:
       - name: Download the published APKs
         run: |
           mkdir apks && cd apks
-          for t in freelane signalfire safetospend safepocket purebeats crownrush clearcheck; do gh release download $t -R "$GITHUB_REPOSITORY" -p '*.apk' || true; done
+          for t in freelane rexvoice signalfire safetospend safepocket purebeats crownrush clearcheck; do gh release download $t -R "$GITHUB_REPOSITORY" -p '*.apk' || true; done
           gh release download v202 -R "$GITHUB_REPOSITORY" -p 'OwnIt.apk' || true
-          gh release download store-files -R "$GITHUB_REPOSITORY" -p 'FreeLane-store.apk' -p 'SignalFire-store.apk' || true
+          gh release download store-files -R "$GITHUB_REPOSITORY" -p 'FreeLane-store.apk' -p 'SignalFire-store.apk' -p 'LeadHunter-store.apk' || true
           ls -la
       - name: Run on emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: ${{ inputs.api }}
+          api-level: ${{ inputs.api || '34' }}
           arch: x86_64
           target: google_apis
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
           script: |
             bash .github/smoke.sh
+            grep -q 'NOT RUNNING' smoke.out && exit 1 || true
