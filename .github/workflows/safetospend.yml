@@ -1,0 +1,129 @@
+name: Build Safe to Spend
+on:
+  workflow_dispatch:
+    inputs:
+      play:
+        description: "Also build the Google Play bundle (.aab)"
+        type: boolean
+        default: false
+# Built here, in the public download repo, because GitHub Actions is free for public repositories.
+# The code is checked out from the private repo with BUILD_TOKEN; only the finished app is published.
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      INCLUDE_SAFETOSPEND: "1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: frantzvardman26-max/3D   # the private code; this public repo only runs the build (free minutes)
+          token: ${{ secrets.BUILD_TOKEN }}
+      - name: Build number (continues from the old private builds so phones accept the update)
+        run: echo "APP_BUILD_NUMBER=$((100 + GITHUB_RUN_NUMBER))" >> "$GITHUB_ENV"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Keep Gradle between builds
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/wrapper/dists
+            ~/.gradle/caches
+          key: gradle-sts-${{ hashFiles('android/gradle/wrapper/gradle-wrapper.properties', 'android/gradle/libs.versions.toml', 'android/safetospend/build.gradle.kts') }}
+          restore-keys: gradle-
+      - name: Tests (money math + screens on a simulated phone)
+        working-directory: android
+        run: |
+          sed -i '/aapt2FromMavenOverride/d' gradle.properties || true
+          chmod +x gradlew
+          ./gradlew :safetospend:testDebugUnitTest --no-daemon
+      - name: Share screen-test screenshots for review (branch sts-screens)
+        if: always()
+        run: |
+          D=android/safetospend/build/screens
+          [ -d "$D" ] || { echo "No screenshots"; exit 0; }
+          ls -la "$D"
+          T=$(mktemp -d); cp "$D"/*.png "$T"/ 2>/dev/null || exit 0
+          cd "$T" && git init -q && git checkout -q -b sts-screens && git add -A
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -qm "Screens from build $APP_BUILD_NUMBER"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" sts-screens || echo "::warning::Couldn't push screenshots"
+      - name: Build Safe to Spend (optimized release)
+        working-directory: android
+        run: |
+          for try in 1 2 3; do
+            if ./gradlew :safetospend:assembleRelease --no-daemon; then break; fi
+            if [ $try = 3 ]; then exit 1; fi
+            sleep 45
+          done
+          cp safetospend/build/outputs/apk/release/safetospend-release.apk ../SafeToSpend.apk
+          ls -la ../SafeToSpend.apk
+      - name: Google Play bundle (.aab), signed with the Safe to Spend upload key
+        if: inputs.play
+        working-directory: android
+        env:
+          PW: ${{ secrets.OWNIT_RELEASE_PASSWORD }}
+        run: |
+          if [ -z "$PW" ]; then echo "::warning::No signing password secret, so no Play bundle"; exit 0; fi
+          ENC=safetospend/signing/upload.jks.enc
+          KS="$RUNNER_TEMP/upload.jks"
+          if [ ! -f "$ENC" ]; then
+            # First time only: create the upload key, keep it in the repo encrypted with the existing secret.
+            mkdir -p safetospend/signing
+            keytool -genkeypair -keystore "$KS" -storepass:env PW -keypass:env PW -alias sts-upload -keyalg RSA -keysize 4096 \
+              -validity 10000 -dname "CN=Safe to Spend, O=Frantz Vardman, C=US"
+            openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -in "$KS" -out "$ENC" -pass env:PW
+            git config user.name "github-actions[bot]"; git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add "$ENC" && git commit -m "Safe to Spend: encrypted Play upload key [skip ci]" && git pull --rebase -q origin main && git push -q origin HEAD:main
+          else
+            openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in "$ENC" -out "$KS" -pass env:PW
+          fi
+          ./gradlew :safetospend:bundleRelease --no-daemon
+          AAB=safetospend/build/outputs/bundle/release/safetospend-release.aab
+          # R8/AGP signs the bundle with the CI test key; replace that with the upload key.
+          zip -q -d "$AAB" 'META-INF/*.SF' 'META-INF/*.RSA' 'META-INF/*.EC' 'META-INF/*.MF' 2>/dev/null || true
+          jarsigner -keystore "$KS" -storepass:env PW -keypass:env PW -sigalg SHA256withRSA -digestalg SHA-256 "$AAB" sts-upload
+          keytool -list -keystore "$KS" -storepass:env PW -alias sts-upload -v | grep -E "SHA256:" | head -1
+          jarsigner -verify "$AAB" | tail -1
+          cp "$AAB" ../SafeToSpend-GooglePlay.aab
+          rm -f "$KS"
+          ls -la ../SafeToSpend-GooglePlay.aab
+      - name: Publish the privacy policy page (public, on frantzvardman26-max/ownit-app)
+        env:
+          GH_TOKEN: ${{ secrets.BUILD_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then echo "No publish token"; exit 0; fi
+          REPO=frantzvardman26-max/ownit-app; F=SAFE_TO_SPEND_PRIVACY.md
+          SHA=$(gh api "repos/$REPO/contents/$F" --jq .sha 2>/dev/null || true); echo "$SHA" | grep -Eq '^[0-9a-f]{40}$' || SHA=""
+          NEWB=$(base64 -w0 android/safetospend/docs/PRIVACY.md)
+          OLDB=$(gh api "repos/$REPO/contents/$F" --jq .content 2>/dev/null | tr -d '\n' || true)
+          if [ "$NEWB" != "$OLDB" ]; then gh api -X PUT "repos/$REPO/contents/$F" -f message="Safe to Spend privacy policy" -f content="$NEWB" ${SHA:+-f sha="$SHA"} >/dev/null && echo "Policy published" || echo "::warning::Couldn't publish the policy"; else echo "Policy unchanged"; fi
+      - name: Privacy check (the app must never get internet access)
+        run: |
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          PERMS=$("$BT/aapt2" dump permissions SafeToSpend.apk)
+          echo "$PERMS"
+          if echo "$PERMS" | grep -q "android.permission.INTERNET"; then echo "::error::INTERNET permission found. Safe to Spend promises no internet access."; exit 1; fi
+          echo "OK: no internet permission"
+      - name: Keep the database schema in the repo (migration history)
+        run: |
+          cd android/safetospend
+          if [ -n "$(git status --porcelain schemas)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add schemas
+            git commit -m "Safe to Spend: database schema snapshot [skip ci]"
+            git pull --rebase -q origin main && git push -q origin HEAD:main || echo "::warning::Couldn't save the schema snapshot"
+          fi
+      - name: Public download page (frantzvardman26-max/ownit-app, tag "safetospend", never marked latest so Own It's updater is unaffected)
+        env:
+          GH_TOKEN: ${{ secrets.BUILD_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then echo "No publish token"; exit 0; fi
+          REPO=frantzvardman26-max/ownit-app
+          gh release delete safetospend -R "$REPO" -y --cleanup-tag || true
+          gh release create safetospend SafeToSpend.apk $(ls *-GooglePlay.aab 2>/dev/null) -R "$REPO" --latest=false \
+            --title "Safe to Spend" --notes "Safe to Spend: know what's safe to spend until payday. Free, offline, no account. Build $APP_BUILD_NUMBER." \
+            && echo "Public download: https://github.com/$REPO/releases/download/safetospend/SafeToSpend.apk" || echo "::warning::Couldn't publish the public download"

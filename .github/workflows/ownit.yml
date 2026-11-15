@@ -1,0 +1,112 @@
+name: Build Own It
+on:
+  workflow_dispatch:
+    inputs:
+      play:
+        description: "Also build the Google Play bundle (.aab)"
+        type: boolean
+        default: false
+# Built here, in the public download repo, because GitHub Actions is free for public repositories.
+# The code is checked out from the private repo with BUILD_TOKEN; only the finished app is published.
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: frantzvardman26-max/3D   # the private code; this public repo only runs the build (free minutes)
+          token: ${{ secrets.BUILD_TOKEN }}
+      - name: Build number (continues from the old private builds so phones accept the update)
+        run: echo "APP_BUILD_NUMBER=$((100 + GITHUB_RUN_NUMBER))" >> "$GITHUB_ENV"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Keep Gradle between builds
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/wrapper/dists
+            ~/.gradle/caches
+          key: gradle-ownit-${{ hashFiles('android/gradle/wrapper/gradle-wrapper.properties', 'android/gradle/libs.versions.toml', 'android/ownit/build.gradle.kts') }}
+          restore-keys: gradle-
+      - name: Build Own It
+        working-directory: android
+        run: |
+          sed -i '/aapt2FromMavenOverride/d' gradle.properties || true
+          chmod +x gradlew
+          for try in 1 2 3 4; do
+            if ./gradlew :ownit:assembleDebug --no-daemon; then break; fi
+            if [ $try = 4 ]; then exit 1; fi
+            echo "Build attempt $try failed, waiting and trying again..."
+            sleep 45
+          done
+          cp ownit/build/outputs/apk/debug/ownit-debug.apk ../OwnIt.apk
+          ls -la ../OwnIt.apk
+      - name: Build the Google Play bundle (.aab)
+        if: inputs.play
+        working-directory: android
+        env:
+          PW: ${{ secrets.OWNIT_RELEASE_PASSWORD }}
+        run: |
+          if ! ./gradlew :ownit:bundleRelease --no-daemon; then echo "::warning::Play bundle didn't build"; exit 0; fi
+          AAB=ownit/build/outputs/bundle/release/ownit-release.aab
+          if [ -n "$PW" ]; then
+            openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in ownit/signing/release.jks.enc -out "$RUNNER_TEMP/release.jks" -pass env:PW
+            jarsigner -keystore "$RUNNER_TEMP/release.jks" -storepass:env PW -keypass:env PW -sigalg SHA256withRSA -digestalg SHA-256 "$AAB" ownit
+            rm -f "$RUNNER_TEMP/release.jks"
+          fi
+          cp "$AAB" ../OwnIt-GooglePlay.aab
+          ls -la ../OwnIt-GooglePlay.aab
+      - name: Sign with the release key (rotated from the old key, so updates install over existing apps)
+        working-directory: android
+        env:
+          PW: ${{ secrets.OWNIT_RELEASE_PASSWORD }}
+        run: |
+          if [ -z "$PW" ]; then echo "::error::Add the OWNIT_RELEASE_PASSWORD secret to this repo. Without it Own It can't be signed and phones would refuse the update."; exit 1; fi
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          echo "Using $BT"
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in ownit/signing/release.jks.enc -out "$RUNNER_TEMP/release.jks" -pass env:PW
+          OLD="--ks ci/debug.keystore --ks-key-alias androiddebugkey --ks-pass pass:android --key-pass pass:android"
+          NEW="--ks $RUNNER_TEMP/release.jks --ks-key-alias ownit --ks-pass env:PW --key-pass env:PW"
+          "$BT/apksigner" rotate --out "$RUNNER_TEMP/lineage" \
+            --old-signer $OLD --set-installed-data true --set-shared-uid true --set-permission true --set-rollback false --set-auth true \
+            --new-signer $NEW
+          "$BT/apksigner" sign $OLD --next-signer $NEW --lineage "$RUNNER_TEMP/lineage" --out ../OwnIt-signed.apk ../OwnIt.apk
+          "$BT/apksigner" verify -v --print-certs ../OwnIt-signed.apk | grep -E 'Verified using|Number of signers|certificate SHA-256' | head -20
+          mv ../OwnIt-signed.apk ../OwnIt.apk
+          rm -f "$RUNNER_TEMP/release.jks"
+      - name: Publish to the public download page (frantzvardman26-max/ownit-app)
+        env:
+          GH_TOKEN: ${{ secrets.BUILD_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then echo "No OWNIT_PUBLISH_TOKEN secret yet, so skipping the public download page."; exit 0; fi
+          REPO=frantzvardman26-max/ownit-app
+          CODE=$((100 + $APP_BUILD_NUMBER))
+          NOTES=$(cat android/ownit/RELEASE_NOTES.md 2>/dev/null || git log -1 --format=%s)
+          gh release create "v$CODE" OwnIt.apk $(ls *-GooglePlay.aab 2>/dev/null) -R "$REPO" --latest \
+            --title "Own It 2.$APP_BUILD_NUMBER" --notes "$NOTES"
+          # The privacy policy lives on the public page so it has a link anyone can open.
+          SHA=$(gh api "repos/$REPO/contents/PRIVACY.md" --jq .sha 2>/dev/null || true)
+          echo "$SHA" | grep -Eq '^[0-9a-f]{40}$' || SHA=""
+          NEWB=$(base64 -w0 android/ownit/PRIVACY.md)
+          OLDB=$(gh api "repos/$REPO/contents/PRIVACY.md" --jq .content 2>/dev/null | tr -d '\n' || true)
+          if [ "$NEWB" != "$OLDB" ]; then
+            gh api -X PUT "repos/$REPO/contents/PRIVACY.md" -f message="Privacy policy" -f content="$NEWB" ${SHA:+-f sha="$SHA"} >/dev/null && echo "Privacy policy updated" || echo "::warning::Couldn't update PRIVACY.md"
+          fi
+          # The Own It Artists directory (approved listings only).
+          if [ -f android/ownit/directory.json ]; then
+            DSHA=$(gh api "repos/$REPO/contents/directory.json" --jq .sha 2>/dev/null || true)
+            echo "$DSHA" | grep -Eq '^[0-9a-f]{40}$' || DSHA=""
+            DNEW=$(base64 -w0 android/ownit/directory.json)
+            DOLD=$(gh api "repos/$REPO/contents/directory.json" --jq .content 2>/dev/null | tr -d '\n' || true)
+            if [ "$DNEW" != "$DOLD" ]; then
+              gh api -X PUT "repos/$REPO/contents/directory.json" -f message="Own It Artists directory" -f content="$DNEW" ${DSHA:+-f sha="$DSHA"} >/dev/null && echo "Directory updated" || echo "::warning::Couldn't update directory.json"
+            fi
+          fi
+          # Keep only the newest version on the page.
+          # (Sort by version number: GitHub gives every release here the same date.)
+          gh release list -R "$REPO" --limit 50 --json tagName -q '.[].tagName' | grep '^v' | sort -V -r | tail -n +2 \
+            | xargs -r -n1 gh release delete -y --cleanup-tag -R "$REPO"

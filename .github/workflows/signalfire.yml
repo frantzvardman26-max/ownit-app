@@ -1,0 +1,117 @@
+name: Build Signal Fire
+on:
+  workflow_dispatch:
+    inputs:
+      play:
+        description: "Also build the Google Play bundle (.aab)"
+        type: boolean
+        default: false
+# Built here, in the public download repo, because GitHub Actions is free for public repositories.
+# The code is checked out from the private repo with BUILD_TOKEN; only the finished app is published.
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: frantzvardman26-max/3D   # the private code; this public repo only runs the build (free minutes)
+          token: ${{ secrets.BUILD_TOKEN }}
+      - name: Build number (continues from the old private builds so phones accept the update)
+        run: echo "APP_BUILD_NUMBER=$((100 + GITHUB_RUN_NUMBER))" >> "$GITHUB_ENV"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Keep Gradle between builds
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/wrapper/dists
+            ~/.gradle/caches
+          key: gradle-sf-${{ hashFiles('android/gradle/wrapper/gradle-wrapper.properties', 'android/gradle/libs.versions.toml', 'android/signalfire/build.gradle.kts') }}
+          restore-keys: gradle-
+      - name: Build Signal Fire
+        working-directory: android
+        run: |
+          sed -i '/aapt2FromMavenOverride/d' gradle.properties || true
+          chmod +x gradlew
+          for try in 1 2 3 4; do
+            if ./gradlew :signalfire:assembleDebug --no-daemon; then break; fi
+            if [ $try = 4 ]; then exit 1; fi
+            echo "Build attempt $try failed, waiting and trying again..."
+            sleep 45
+          done
+          cp signalfire/build/outputs/apk/debug/signalfire-debug.apk ../SignalFire.apk
+          ls -la ../SignalFire.apk
+      - name: Tests (screens on a simulated phone)
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew :signalfire:testDebugUnitTest --no-daemon
+      - name: Share screen-test screenshots for review (branch sf-screens)
+        if: always()
+        run: |
+          D=android/signalfire/build/screens
+          [ -d "$D" ] || { echo "No screenshots"; exit 0; }
+          T=$(mktemp -d); cp "$D"/*.png "$D"/*.wav "$T"/ 2>/dev/null || true; ls "$T" | grep -q . || exit 0
+          cd "$T" && git init -q && git checkout -q -b sf-screens && git add -A
+          git -c user.name=ci -c user.email=ci@example.com commit -qm "screens"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" sf-screens || echo "::warning::Couldn't push screenshots"
+      - name: Google Play bundle (.aab), signed with the Signal Fire upload key
+        if: inputs.play
+        working-directory: android
+        env:
+          PW: ${{ secrets.OWNIT_RELEASE_PASSWORD }}
+        run: |
+          # Why: Google Play needs an upload key that stays the same for the life of the app; it's created once and kept encrypted.
+          if [ -z "$PW" ]; then echo "::warning::No signing password secret, so no Play bundle"; exit 0; fi
+          ENC=signalfire/signing/upload.jks.enc
+          KS="$RUNNER_TEMP/upload.jks"
+          if [ ! -f "$ENC" ]; then
+            mkdir -p signalfire/signing
+            keytool -genkeypair -keystore "$KS" -storepass:env PW -keypass:env PW -alias sf-upload -keyalg RSA -keysize 4096 \
+              -validity 10000 -dname "CN=Signal Fire, O=Frantz Vardman, C=US"
+            openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -in "$KS" -out "$ENC" -pass env:PW
+            git config user.name "github-actions[bot]"; git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add "$ENC" && git commit -m "Signal Fire: encrypted Play upload key [skip ci]" && git pull --rebase -q origin main && git push -q origin HEAD:main
+          else
+            openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in "$ENC" -out "$KS" -pass env:PW
+          fi
+          ./gradlew :signalfire:bundleRelease --no-daemon
+          AAB=signalfire/build/outputs/bundle/release/signalfire-release.aab
+          zip -q -d "$AAB" 'META-INF/*.SF' 'META-INF/*.RSA' 'META-INF/*.EC' 'META-INF/*.MF' 2>/dev/null || true
+          jarsigner -keystore "$KS" -storepass:env PW -keypass:env PW -sigalg SHA256withRSA -digestalg SHA-256 "$AAB" sf-upload
+          jarsigner -verify "$AAB" | tail -1
+          cp "$AAB" ../SignalFire-GooglePlay.aab
+          rm -f "$KS"
+      - name: Privacy check (the app must never get internet access)
+        run: |
+          # Why: the privacy policy promises no internet access; this fails the build if that promise is ever broken.
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          PERMS=$("$BT/aapt2" dump permissions SignalFire.apk); echo "$PERMS"
+          if echo "$PERMS" | grep -q "android.permission.INTERNET"; then echo "::error::INTERNET permission found. Signal Fire promises no internet access."; exit 1; fi
+          echo "OK: no internet permission"
+      - name: Publish the privacy policy page (public, on frantzvardman26-max/ownit-app)
+        env:
+          GH_TOKEN: ${{ secrets.BUILD_TOKEN }}
+        run: |
+          # Why: Google Play requires a public privacy policy link for every app.
+          if [ -z "$GH_TOKEN" ]; then echo "No publish token"; exit 0; fi
+          REPO=frantzvardman26-max/ownit-app; F=SIGNAL_FIRE_PRIVACY.md
+          SHA=$(gh api "repos/$REPO/contents/$F" --jq .sha 2>/dev/null || true); echo "$SHA" | grep -Eq '^[0-9a-f]{40}$' || SHA=""
+          NEWB=$(base64 -w0 android/signalfire/docs/PRIVACY.md)
+          OLDB=$(gh api "repos/$REPO/contents/$F" --jq .content 2>/dev/null | tr -d '\n' || true)
+          if [ "$NEWB" != "$OLDB" ]; then gh api -X PUT "repos/$REPO/contents/$F" -f message="Signal Fire privacy policy" -f content="$NEWB" ${SHA:+-f sha="$SHA"} >/dev/null && echo "Policy: https://github.com/$REPO/blob/main/$F" || echo "::warning::Couldn't publish the policy"; else echo "Policy unchanged"; fi
+      - name: Public download page (frantzvardman26-max/ownit-app, tag "signalfire", never marked latest so Own It's updater is unaffected)
+        env:
+          GH_TOKEN: ${{ secrets.BUILD_TOKEN }}
+        run: |
+          # Why: a link anyone can open on their phone to install the app before it's on Google Play.
+          if [ -z "$GH_TOKEN" ]; then echo "No publish token"; exit 0; fi
+          REPO=frantzvardman26-max/ownit-app
+          gh release delete signalfire -R "$REPO" -y --cleanup-tag || true
+          gh release create signalfire SignalFire.apk $(ls *-GooglePlay.aab 2>/dev/null) -R "$REPO" --latest=false \
+            --title "Signal Fire" --notes "Signal Fire: talk, share supplies, mark safe places and get first aid with nearby phones, no internet or cell service needed. Free. Build $APP_BUILD_NUMBER." \
+            && echo "Public download: https://github.com/$REPO/releases/download/signalfire/SignalFire.apk" || echo "::warning::Couldn't publish the public download"

@@ -1,0 +1,65 @@
+name: Build Lead Hunter
+on:
+  workflow_dispatch:
+    inputs:
+      play:
+        description: "Also build the Google Play bundle (.aab)"
+        type: boolean
+        default: false
+# Built here, in the public download repo, because GitHub Actions is free for public repositories.
+# The code is checked out from the private repo with BUILD_TOKEN; only the finished app is published.
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: frantzvardman26-max/3D   # the private code; this public repo only runs the build (free minutes)
+          token: ${{ secrets.BUILD_TOKEN }}
+      - name: Build number (continues from the old private builds so phones accept the update)
+        run: echo "APP_BUILD_NUMBER=$((100 + GITHUB_RUN_NUMBER))" >> "$GITHUB_ENV"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Keep Gradle between builds
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/wrapper/dists
+            ~/.gradle/caches
+          key: gradle-lh-${{ hashFiles('android/gradle/wrapper/gradle-wrapper.properties', 'android/gradle/libs.versions.toml', 'android/leadhunter/build.gradle.kts') }}
+          restore-keys: gradle-
+      - name: Build Lead Hunter
+        working-directory: android
+        run: |
+          sed -i '/aapt2FromMavenOverride/d' gradle.properties || true
+          chmod +x gradlew
+          for try in 1 2 3 4; do
+            if ./gradlew :leadhunter:assembleDebug --no-daemon; then break; fi
+            if [ $try = 4 ]; then exit 1; fi
+            echo "Build attempt $try failed, waiting and trying again..."
+            sleep 45
+          done
+          cp leadhunter/build/outputs/apk/debug/leadhunter-debug.apk ../LeadHunter.apk
+          ls -la ../LeadHunter.apk
+      - name: Publish to the public download page (frantzvardman26-max/leadhunter-app)
+        env:
+          GH_TOKEN: ${{ secrets.BUILD_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then echo "No token yet, so skipping the public download page."; exit 0; fi
+          REPO=frantzvardman26-max/leadhunter-app
+          CODE=$((100 + $APP_BUILD_NUMBER))
+          NOTES=$(git log -1 --format=%s)
+          if ! gh repo view "$REPO" >/dev/null 2>&1; then echo "Public repo $REPO isn't reachable with this token yet, so skipping."; exit 0; fi
+          if ! gh release create "v$CODE" LeadHunter.apk $(ls *-GooglePlay.aab 2>/dev/null) -R "$REPO" --latest \
+            --title "Lead Hunter 1.$APP_BUILD_NUMBER" --notes "$NOTES"; then
+            echo "::warning::The publish token can't write to $REPO yet. Give it Contents: Read and write on that repo."
+            exit 0
+          fi
+          # Keep only the newest version on the page.
+          # (Sort by version number: GitHub gives every release here the same date.)
+          gh release list -R "$REPO" --limit 50 --json tagName -q '.[].tagName' | grep '^v' | sort -V -r | tail -n +2 \
+            | xargs -r -n1 gh release delete -y --cleanup-tag -R "$REPO"

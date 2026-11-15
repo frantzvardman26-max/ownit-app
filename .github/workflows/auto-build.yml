@@ -1,0 +1,55 @@
+name: Auto build
+# Why: the apps are built in this public repo because GitHub Actions is free here. Every hour this checks the private
+# code for changes and starts a build only for the apps (and the shop) that changed. It costs no private minutes.
+on:
+  schedule:
+    - cron: "11 * * * *"
+  workflow_dispatch:
+    inputs:
+      all:
+        description: "Rebuild every app and redeploy the shop, even if nothing changed"
+        type: boolean
+        default: false
+permissions:
+  contents: write
+  actions: write
+concurrency:
+  group: auto-build
+  cancel-in-progress: false
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Start builds for whatever changed
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SRC: ${{ secrets.BUILD_TOKEN }}
+          ALL: ${{ inputs.all }}
+        run: |
+          set -e
+          if [ -z "$SRC" ]; then echo "::warning::Add the BUILD_TOKEN secret (see README) so builds can read the private code."; exit 0; fi
+          git clone -q --filter=blob:none --no-checkout "https://x-access-token:${SRC}@github.com/frantzvardman26-max/3D.git" src
+          if ! git clone -q --depth 1 -b build-state "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" state 2>/dev/null; then
+            mkdir state && git -C state init -q && git -C state checkout -q -b build-state
+            git -C state remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          fi
+          SHARED="android/gradle android/build.gradle.kts android/settings.gradle.kts android/gradle.properties"
+          check() { wf=$1; shift
+            now=$(git -C src log -1 --format=%H -- "$@")
+            old=$(cat "state/$wf" 2>/dev/null || true)
+            if [ "$ALL" = "true" ] || [ "$now" != "$old" ]; then
+              echo "→ $wf changed (${now::7}), building"
+              gh workflow run "$wf.yml" -R "$GITHUB_REPOSITORY" && echo "$now" > "state/$wf"
+            else echo "  $wf up to date"; fi; }
+          check ownit android/ownit $SHARED
+          check safetospend android/safetospend $SHARED
+          check leadhunter android/leadhunter $SHARED
+          check safepocket android/safepocket $SHARED
+          check crownrush android/crownrush $SHARED
+          check purebeats android/purebeats $SHARED
+          check signalfire android/signalfire $SHARED
+          check clearcheck android/clearcheck $SHARED
+          check rexvoice android/rexvoice $SHARED
+          check shop-verify shop
+          cd state && git add -A
+          if git -c user.name=github-actions -c user.email=actions@github.com commit -qm "build state"; then git push -q origin build-state; fi
