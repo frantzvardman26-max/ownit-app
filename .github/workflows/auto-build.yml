@@ -50,6 +50,8 @@ jobs:
           check signalfire android/signalfire $SHARED
           check clearcheck android/clearcheck $SHARED
           check rexvoice android/rexvoice $SHARED
+          check freelane android/freelane $SHARED
           check shop-verify shop
+          check freelane-site freelane-site android/freelane/docs
           cd state && git add -A
           if git -c user.name=github-actions -c user.email=actions@github.com commit -qm "build state"; then git push -q origin build-state; fi

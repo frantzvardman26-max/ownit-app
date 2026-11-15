@@ -4,11 +4,12 @@ name: F-Droid app library
 # The library is rebuilt after any app build finishes (no daily run: it saves free build minutes).
 on:
   workflow_run:
-    workflows: ["Build Own It", "Build Safe to Spend", "Build Lead Hunter", "Build Safe Pocket", "Build Bombs & Bullion", "Build Pure Beats", "Build Signal Fire", "Build Clear Check", "Build Rex Voice"]
+    workflows: ["Build Own It", "Build Safe to Spend", "Build Lead Hunter", "Build Safe Pocket", "Build Bombs & Bullion", "Build Pure Beats", "Build Signal Fire", "Build Clear Check", "Build Rex Voice", "Build Free Lane"]
     types: [completed]
   workflow_dispatch:
 permissions:
   contents: write
+  actions: write
 concurrency:
   group: fdroid-repo
   cancel-in-progress: true   # many builds finishing together only need the last refresh
@@ -55,6 +56,7 @@ jobs:
           get PureBeats.apk https://github.com/frantzvardman26-max/ownit-app/releases/download/purebeats/PureBeats.apk
           get SignalFire.apk https://github.com/frantzvardman26-max/ownit-app/releases/download/signalfire/SignalFire.apk
           get ClearCheck.apk https://github.com/frantzvardman26-max/ownit-app/releases/download/clearcheck/ClearCheck.apk
+          get FreeLane.apk https://github.com/frantzvardman26-max/ownit-app/releases/download/freelane/FreeLane.apk
           # Rex Voice is left out: ~220 MB with its voice model, over GitHub's 100 MB file limit for this branch.
           find repo -name "*.apk" -size +95M -print -delete
           ls -la repo
@@ -70,6 +72,7 @@ jobs:
           m com.frantzvardman.purebeats Multimedia "100% original beats made on your phone" "No samples, no loops. Export the beat, 7 stems and a certificate of originality." "Pure Beats"
           m com.frantzvardman.signalfire Connectivity "Stay in touch with people nearby when there's no signal" "Phone-to-phone chat, supplies board, shared places and sourced first aid. No internet needed." "Signal Fire"
           m com.frantzvardman.clearcheck Office "A plain-English check-up for your business" "Paperwork, red flags, money and plain talk: a score, a fix list with official sources and a PDF report." "Clear Check"
+          m com.frantzvardman.freelane System "A free app store with no gatekeepers" "Install and update free apps. Every download is checked against its SHA-256 fingerprint before it installs. No account, no ads, nothing collected." "Free Lane"
           m com.frantzvardman.rexvoice Multimedia "Clone your voice on your phone, with consent" "Record 2 to 5 minutes of your voice, add the speaker's spoken consent, and Rex Voice clones it on the phone itself (Pocket TTS by Kyutai, CC BY 4.0). Turn scripts into narration in that voice. Nothing is uploaded: no internet permission." "Rex Voice"
       - name: Icons and screenshots for each app's page
         env:
@@ -81,7 +84,7 @@ jobs:
           icon() { mkdir -p "metadata/$1/en-US/phoneScreenshots"; cp "../shop/site/img/app/$2.png" "metadata/$1/en-US/icon.png"; }
           icon com.ownit.app ownit; icon com.safetospend.app safetospend; icon com.leadhunter.app leadhunter
           icon com.frantzvardman.safepocket safepocket; icon com.frantzvardman.crownrush crownrush; icon com.frantzvardman.purebeats purebeats
-          icon com.frantzvardman.signalfire signalfire; icon com.frantzvardman.clearcheck clearcheck; icon com.frantzvardman.rexvoice rexvoice
+          icon com.frantzvardman.signalfire signalfire; icon com.frantzvardman.clearcheck clearcheck; icon com.frantzvardman.rexvoice rexvoice; icon com.frantzvardman.freelane freelane
           shots() { T=$(mktemp -d); git clone -q --depth 1 -b "$2" "https://x-access-token:${GT}@github.com/${GITHUB_REPOSITORY}.git" "$T" 2>/dev/null || { echo "::warning::no $2"; return 0; }
             i=1; for f in $3; do [ -f "$T/$f" ] && cp "$T/$f" "metadata/$1/en-US/phoneScreenshots/$i.png" && i=$((i+1)); done; }
           shots com.frantzvardman.safepocket sp-screens "en-1-papers.png en-2-dates.png en-4-guides.png 07-lock.png"
@@ -89,6 +92,7 @@ jobs:
           shots com.frantzvardman.purebeats pb-screens "pb-1-home.png"
           shots com.frantzvardman.signalfire sf-screens "sf-1-nearby.png sf-2-supplies.png sf-3-places.png sf-4-aid.png"
           shots com.frantzvardman.clearcheck cc-screens "cc-1-home-empty.png cc-2-question.png cc-3-home-scored.png cc-4-report.png"
+          shots com.frantzvardman.freelane fl-screens "fl-1-discover.png fl-2-updates.png fl-3-submit.png"
           shots com.frantzvardman.rexvoice rv-screens "rv-1-record.png rv-4-vault.png rv-5-narrator.png rv-3-consent.png"
           shots com.safetospend.app sts-screens "normal_1_home.png normal_2_activity.png normal_3_bills.png"
           find metadata -name '*.png' | sort
@@ -114,6 +118,30 @@ jobs:
           FP=$(keytool -list -v -keystore keystore.p12 -storepass:env PW -alias fdroid-repo | grep 'SHA256:' | head -1 | sed 's/.*SHA256: //; s/://g')
           echo "FINGERPRINT=$FP" >> $GITHUB_ENV
           rm -f keystore.p12 config.yml
+      - name: Extras for Free Lane (apps the library can't hold)
+        run: |
+          # Own It (signing-key change the library's tools reject) and Rex Voice (too big for this branch) are listed in
+          # repo/extras.json with their release links and SHA-256 fingerprints, so Free Lane can still install them.
+          set -e
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1); T=$(mktemp -d); SHOP=https://shop.frantzmichaelsthilairevardman.com
+          entry() { # package-hint url name summary icon "shots"
+            curl -fsSL --retry 3 -o "$T/a.apk" "$2" || { echo "::warning::no $3"; return 0; }
+            B=$("$BT/aapt2" dump badging "$T/a.apk" | head -1)
+            PKG=$(echo "$B" | sed -E "s/.*name='([^']+)'.*/\1/"); VC=$(echo "$B" | sed -E "s/.*versionCode='([^']+)'.*/\1/"); VN=$(echo "$B" | sed -E "s/.*versionName='([^']+)'.*/\1/")
+            SHA=$(sha256sum "$T/a.apk" | cut -d' ' -f1); SZ=$(stat -c%s "$T/a.apk")
+            python3 - "$PKG" "$VC" "$VN" "$SHA" "$SZ" "$2" "$3" "$4" "$5" "$6" <<'PY'
+          import json, sys, os
+          pkg, vc, vn, sha, sz, apk, name, summary, icon, shots = sys.argv[1:11]
+          f = 'fd/repo/extras.json'; cur = json.load(open(f)) if os.path.exists(f) else []
+          cur.append({"packageName": pkg, "name": name, "summary": summary, "authorName": "Frantz Vardman", "apk": apk, "sha256": sha, "size": int(sz),
+                      "versionCode": int(vc), "versionName": vn, "minSdkVersion": 26, "icon": icon, "screenshots": [s for s in shots.split() if s]})
+          json.dump(cur, open(f, 'w'), indent=1)
+          PY
+            echo "extra: $PKG $VN"; }
+          rm -f fd/repo/extras.json
+          entry ownit https://github.com/frantzvardman26-max/ownit-app/releases/latest/download/OwnIt.apk "Own It" "Music contracts, royalties and business tools for artists" "$SHOP/img/app/ownit.png" ""
+          entry rexvoice https://github.com/frantzvardman26-max/ownit-app/releases/download/rexvoice/RexVoice.apk "Rex Voice" "Clone your voice on your phone, with consent" "$SHOP/img/app/rexvoice.png" "$SHOP/img/app/shots/rexvoice-1.webp $SHOP/img/app/shots/rexvoice-2.webp $SHOP/img/app/shots/rexvoice-3.webp $SHOP/img/app/shots/rexvoice-4.webp"
+          [ -f fd/repo/extras.json ] && cat fd/repo/extras.json | head -40 || echo "[]" > fd/repo/extras.json
       - name: Publish (branch "fdroid" of the public download repo)
         env:
           GH_TOKEN: ${{ secrets.BUILD_TOKEN }}
@@ -133,3 +161,8 @@ jobs:
           # Why force and a fresh history: APKs are big; keeping only the latest build keeps the library small.
           git push -qf "https://x-access-token:${GH_TOKEN}@github.com/frantzvardman26-max/ownit-app.git" fdroid
           echo "Add in F-Droid: https://raw.githubusercontent.com/frantzvardman26-max/ownit-app/fdroid/repo?fingerprint=$FINGERPRINT"
+      - name: Refresh the Free Lane website with the new catalog
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run freelane-site.yml -R "$GITHUB_REPOSITORY" || echo "::warning::Couldn't start the website refresh"
