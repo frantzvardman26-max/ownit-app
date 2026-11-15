@@ -1,6 +1,6 @@
 # Rex Voice: Privacy Policy
 
-_Last updated: November 15, 2026_
+_Last updated: November 15, 2026 (on-device voice cloning)_
 
 Rex Voice is made by Frantz Vardman (J & F Studios). This policy explains what the app does with your information.
 
@@ -14,6 +14,7 @@ Rex Voice is made by Frantz Vardman (J & F Studios). This policy explains what t
 
 - **Voice recordings** you make on the Record tab, with the name you give each voice and the speaker's name.
 - **Consent recordings**: the spoken statement in which the speaker agrees to their voice being used. A voice can't be sent to a cloning engine without one.
+- **Clones**: a short clip of each consented voice that the on-device model copies the voice from.
 - **Narrations** you create from a script, until you replace them.
 
 All of this lives in storage only Rex Voice can read. Uninstalling the app or clearing its storage erases it. You can delete any voice, along with its consent recording, from the Voice Vault.
@@ -32,7 +33,11 @@ When you tap Share or Save, the file goes where you choose (another app, or your
 
 ## Voice cloning
 
-This version does not clone voices. If a cloning service is added later, it will be off until you turn it on, this policy will be updated first, and the app will tell you which service it is and what is sent to it before anything leaves your phone.
+Rex Voice clones voices **on your phone**. The voice model (Pocket TTS by Kyutai) is built into the app, so no recording, script or clone is ever sent to us or to any outside service. The app has no way to: it has no internet permission.
+
+- A voice can be cloned only after the speaker records a spoken consent statement in their own voice.
+- Cloning saves a short clip (about 15 seconds) picked from the sample. The clone is deleted with the voice.
+- Narrations made with a cloned voice are named "(AI voice)" when you share or save them. Don't use a cloned voice to deceive anyone or to pass audio off as a real recording.
 
 ## Children
 
