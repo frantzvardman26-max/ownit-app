@@ -1,0 +1,33 @@
+name: Smoke test (install the published apps on a real Android emulator, open each, catch crashes)
+on:
+  workflow_dispatch:
+    inputs:
+      api: {description: 'Android API level', required: false, default: '34'}
+permissions: {contents: read}
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
+      - name: Download the published APKs
+        run: |
+          mkdir apks && cd apks
+          for t in freelane signalfire safetospend safepocket purebeats crownrush clearcheck; do gh release download $t -R "$GITHUB_REPOSITORY" -p '*.apk' || true; done
+          gh release download v202 -R "$GITHUB_REPOSITORY" -p 'OwnIt.apk' || true
+          gh release download store-files -R "$GITHUB_REPOSITORY" -p 'FreeLane-store.apk' -p 'SignalFire-store.apk' || true
+          ls -la
+      - name: Run on emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ inputs.api }}
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
+          script: bash -c 'for f in apks/*.apk; do echo "=================== $f"; pkg=$(/usr/local/lib/android/sdk/build-tools/$(ls /usr/local/lib/android/sdk/build-tools | sort -V | tail -1)/aapt2 dump packagename "$f" 2>/dev/null); adb uninstall "$pkg" >/dev/null 2>&1; adb install -r -g "$f" | tail -1; adb logcat -c; adb shell monkey -p "$pkg" -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1; sleep 12; if adb shell pidof "$pkg" >/dev/null; then echo "RESULT $pkg: running OK"; else echo "RESULT $pkg: NOT RUNNING"; fi; adb logcat -d -b crash | head -60; adb logcat -d | grep -E "FATAL EXCEPTION|AndroidRuntime" -A25 | head -50; done'
