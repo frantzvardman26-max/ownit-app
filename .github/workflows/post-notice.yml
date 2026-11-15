@@ -1,0 +1,28 @@
+name: Post a Beta Lane notice
+# Shows news (e.g. a new app on Free Lane) at the top of every active beta tester's page. Same title won't post twice.
+on:
+  workflow_dispatch:
+    inputs:
+      title: { description: 'Title', required: true }
+      body: { description: 'Message', required: false, default: '' }
+      app: { description: 'App id (e.g. bayouburger), optional', required: false, default: '' }
+      at: { description: 'Time, UTC (e.g. 2026-11-15T22:40:00Z)', required: true }
+permissions: { contents: read }
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      TITLE: ${{ inputs.title }}
+      BODY: ${{ inputs.body }}
+      APP: ${{ inputs.app }}
+      AT: ${{ inputs.at }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Post it
+        run: |
+          python3 .github/post_notice.py
+          npx -y wrangler@3 d1 execute shop-downloads --remote --file notice.sql
+          echo "--- Notices now:"; npx -y wrangler@3 d1 execute shop-downloads --remote --json --command "SELECT id, at, title, app, active FROM beta_notices ORDER BY id" | jq -r '.[0].results[] | "\(.id) \(.at) \(.app) active=\(.active) | \(.title)"'
+          echo "--- Active testers who will see it:"; npx -y wrangler@3 d1 execute shop-downloads --remote --json --command "SELECT name FROM beta_testers WHERE status = 'active'" | jq -r '.[0].results[] | .name'
