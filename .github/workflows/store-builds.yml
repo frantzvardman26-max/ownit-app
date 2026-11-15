@@ -1,0 +1,95 @@
+name: Store builds
+# Release versions of every app for app stores (Samsung, Aptoide, Uptodown, itch.io). Why separate from the normal
+# builds: stores reject test ("debuggable") builds, and each app must be signed with its own permanent key so every
+# future update is accepted. Keys are created once, stored encrypted in the private repo, and reused forever.
+# Output: the "store-files" release on this repo (one APK per app). Run it by hand when you're uploading to stores.
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        include:
+          - { module: ownit, apk: OwnIt, key: ownit/signing/release.jks.enc, alias: ownit }
+          - { module: safetospend, apk: SafeToSpend, key: safetospend/signing/upload.jks.enc, alias: sts-upload }
+          - { module: leadhunter, apk: LeadHunter, key: leadhunter/signing/upload.jks.enc, alias: lh-upload }
+          - { module: safepocket, apk: SafePocket, key: safepocket/signing/upload.jks.enc, alias: sp-upload }
+          - { module: crownrush, apk: BombsAndBullion, key: crownrush/signing/upload.jks.enc, alias: cr-upload }
+          - { module: purebeats, apk: PureBeats, key: purebeats/signing/upload.jks.enc, alias: pb-upload }
+          - { module: signalfire, apk: SignalFire, key: signalfire/signing/upload.jks.enc, alias: sf-upload }
+          - { module: clearcheck, apk: ClearCheck, key: clearcheck/signing/upload.jks.enc, alias: cc-upload }
+          - { module: rexvoice, apk: RexVoice, key: rexvoice/signing/upload.jks.enc, alias: rv-upload }
+          - { module: freelane, apk: FreeLane, key: freelane/signing/upload.jks.enc, alias: fl-upload }
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: frantzvardman26-max/3D
+          token: ${{ secrets.BUILD_TOKEN }}
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 21 }
+      - name: Build number
+        run: echo "APP_BUILD_NUMBER=$((500 + GITHUB_RUN_NUMBER))" >> "$GITHUB_ENV"
+      - name: Rex Voice's on-device voice engine
+        if: matrix.module == 'rexvoice'
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          set -e; SHERPA=1.13.8; MODEL=sherpa-onnx-pocket-tts-int8-2026-01-26; R=android/rexvoice/src/main; T=$(mktemp -d)
+          NAME=$(gh api "repos/k2-fsa/sherpa-onnx/releases/tags/v$SHERPA" -q '.assets[].name' | grep -E 'android\.tar\.bz2$' | grep -viE 'static|rknn|qnn|ascend|wear' | head -1)
+          curl -fsSL --retry 4 -o "$T/l.tar.bz2" "https://github.com/k2-fsa/sherpa-onnx/releases/download/v$SHERPA/$NAME"; tar xjf "$T/l.tar.bz2" -C "$T"
+          mkdir -p "$R/jniLibs/arm64-v8a" "$R/assets/pocket"; cp $(find "$T" -path '*arm64-v8a/*.so') "$R/jniLibs/arm64-v8a/"
+          curl -fsSL --retry 4 -o "$T/m.tar.bz2" "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/$MODEL.tar.bz2"; tar xjf "$T/m.tar.bz2" -C "$T"
+          for f in lm_flow.int8.onnx lm_main.int8.onnx encoder.onnx decoder.int8.onnx text_conditioner.onnx vocab.json token_scores.json; do cp "$(find "$T" -name "$f" | head -1)" "$R/assets/pocket/"; done
+      - name: Release build
+        working-directory: android
+        env:
+          INCLUDE_SAFETOSPEND: ${{ matrix.module == 'safetospend' && '1' || '' }}
+        run: |
+          sed -i '/aapt2FromMavenOverride/d' gradle.properties || true; chmod +x gradlew
+          for try in 1 2 3; do ./gradlew :${{ matrix.module }}:assembleRelease --no-daemon && break; [ $try = 3 ] && exit 1; sleep 30; done
+          ls -la ${{ matrix.module }}/build/outputs/apk/release/
+      - name: Sign with the app's permanent key
+        working-directory: android
+        env:
+          PW: ${{ secrets.OWNIT_RELEASE_PASSWORD }}
+        run: |
+          set -e
+          ENC=${{ matrix.key }}; KS="$RUNNER_TEMP/k.jks"
+          if [ ! -f "$ENC" ]; then
+            # First store build of this app: make its permanent key and keep it (encrypted) in the private repo.
+            keytool -genkeypair -keystore "$KS" -storepass:env PW -keypass:env PW -alias ${{ matrix.alias }} -keyalg RSA -keysize 4096 -validity 10000 -dname "CN=${{ matrix.apk }}, O=Frantz Vardman, C=US"
+            mkdir -p "$(dirname "$ENC")"; openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -in "$KS" -out "$ENC" -pass env:PW
+            git config user.name "github-actions[bot]"; git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add "$ENC"; git commit -m "${{ matrix.apk }}: encrypted store signing key [skip ci]"
+            for i in 1 2 3 4 5; do git pull --rebase -q origin main && git push -q origin HEAD:main && break; sleep $((i * 5)); done
+          else
+            openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in "$ENC" -out "$KS" -pass env:PW
+          fi
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          IN=$(ls ${{ matrix.module }}/build/outputs/apk/release/*.apk | head -1)
+          "$BT/zipalign" -f -p 4 "$IN" "$RUNNER_TEMP/aligned.apk"
+          "$BT/apksigner" sign --ks "$KS" --ks-key-alias ${{ matrix.alias }} --ks-pass env:PW --key-pass env:PW --out ../${{ matrix.apk }}-store.apk "$RUNNER_TEMP/aligned.apk"
+          rm -f "$KS"
+          "$BT/apksigner" verify --print-certs ../${{ matrix.apk }}-store.apk | grep -E "Signer #1 certificate (DN|SHA-256)"
+          if "$BT/aapt2" dump badging ../${{ matrix.apk }}-store.apk | grep -q "application-debuggable"; then echo "::error::Still a debuggable build"; exit 1; fi
+          "$BT/aapt2" dump badging ../${{ matrix.apk }}-store.apk | head -1
+      - uses: actions/upload-artifact@v4
+        with: { name: "${{ matrix.apk }}", path: "${{ matrix.apk }}-store.apk", retention-days: 3 }
+  publish:
+    needs: build
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { path: files, merge-multiple: true }
+      - name: Publish (release "store-files", not marked latest)
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          ls -la files
+          gh release delete store-files -R "$GITHUB_REPOSITORY" -y --cleanup-tag || true
+          gh release create store-files files/*.apk -R "$GITHUB_REPOSITORY" --latest=false --title "Store-ready app files" \
+            --notes "Release builds for app stores, each signed with its own permanent key. Upload the matching file in each store's developer console."
