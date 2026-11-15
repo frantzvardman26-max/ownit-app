@@ -5,7 +5,7 @@ permissions: { contents: write }
 jobs:
   explore:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 240
     env: { GH_TOKEN: "${{ github.token }}" }
     steps:
       - uses: actions/checkout@v4
@@ -20,6 +20,8 @@ jobs:
           gh release download v202 -R "$GITHUB_REPOSITORY" -p 'OwnIt.apk' || true
           gh release download store-files -R "$GITHUB_REPOSITORY" -p 'LeadHunter-store.apk' || true
           ls -la
+      - name: Image tools
+        run: pip install --quiet pillow
       - name: Tap everything
         uses: reactivecircus/android-emulator-runner@v2
         with:
