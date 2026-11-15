@@ -1,8 +1,8 @@
-# Crown Rush: Privacy Policy
+# Bombs & Bullion (formerly Crown Rush): Privacy Policy
 
 *Last updated: November 14, 2026*
 
-Crown Rush is a free game made by Frantz Vardman.
+Bombs & Bullion is a free game made by Frantz Vardman.
 
 ## What the game stores
 Only game progress on your phone: best score, gold, stars, missions, unlocked crowns, daily-gift streak, and a count of how often you tapped each "From the maker" card.
@@ -18,7 +18,7 @@ The game shows cards for other apps and products by the same maker. Tapping one 
 Uninstall the game, or clear its storage in your phone's settings.
 
 ## Children
-Crown Rush collects no personal information from anyone, including children.
+Bombs & Bullion collects no personal information from anyone, including children.
 
 ## Contact
 Questions: frantzvardman@mail2one.com
