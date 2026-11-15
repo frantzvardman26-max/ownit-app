@@ -4,7 +4,7 @@ name: F-Droid app library
 # The library is rebuilt after any app build finishes (no daily run: it saves free build minutes).
 on:
   workflow_run:
-    workflows: ["Build Own It", "Build Safe to Spend", "Build Lead Hunter", "Build Safe Pocket", "Build Bombs & Bullion", "Build Pure Beats", "Build Signal Fire", "Build Clear Check", "Build Rex Voice", "Build Free Lane"]
+    workflows: ["Build Own It", "Build Safe to Spend", "Build Lead Hunter", "Build Safe Pocket", "Build Bombs & Bullion", "Build Pure Beats", "Build Signal Fire", "Build Clear Check", "Build Rex Voice", "Build Free Lane", "Build Bayou Burger"]
     types: [completed]
   workflow_dispatch:
 permissions:
@@ -59,13 +59,14 @@ jobs:
           get FreeLane.apk https://github.com/frantzvardman26-max/ownit-app/releases/download/freelane/FreeLane.apk
           get Lovly.apk https://github.com/frantzvardman26-max/ownit-app/releases/download/lovly/Lovly.apk
           get Reclaim.apk https://github.com/frantzvardman26-max/ownit-app/releases/download/reclaim/Reclaim.apk
+          get BayouBurger.apk https://github.com/frantzvardman26-max/ownit-app/releases/download/bayouburger/BayouBurger.apk
           # Rex Voice is left out: ~220 MB with its voice model, over GitHub's 100 MB file limit for this branch.
           find repo -name "*.apk" -size +95M -print -delete
           ls -la repo
       - name: App descriptions
         run: |
           cd fd/metadata
-          m() { printf 'Name: "%s"\nAuthorName: Frantz Vardman\nWebSite: https://shop.frantzmichaelsthilairevardman.com\nCategories:\n  - %s\nSummary: "%s"\nDescription: |\n  %s\n' "$5" "$2" "$3" "$4" > "$1.yml"; }
+          m() { printf 'Name: "%s"\nAuthorName: %s\nWebSite: %s\nCategories:\n  - %s\nSummary: "%s"\nDescription: |\n  %s\n' "$5" "${6:-Frantz Vardman}" "${7:-https://shop.frantzmichaelsthilairevardman.com}" "$2" "$3" "$4" > "$1.yml"; }  # optional 6th/7th: author, website (apps made for clients)
           m com.ownit.app Multimedia "Music contracts, royalties and business tools for artists" "Scan contracts, track royalties, invoices and shows. No account, no ads." "Own It"
           m com.safetospend.app Money "Know what's safe to spend until payday" "Offline budget app: bills, debts, subscriptions and a cash-flow timeline. No bank login." "Safe to Spend"
           m com.leadhunter.app Office "Lead finder for roofing and window teams" "Find, track and follow up on leads." "Lead Hunter"
@@ -75,6 +76,7 @@ jobs:
           m com.frantzvardman.signalfire Connectivity "Stay in touch with people nearby when there's no signal" "Phone-to-phone chat, supplies board, shared places and sourced first aid. No internet needed." "Signal Fire"
           m com.frantzvardman.clearcheck Office "A plain-English check-up for your business" "Paperwork, red flags, money and plain talk: a score, a fix list with official sources and a PDF report." "Clear Check"
           m com.frantzvardman.freelane System "A free app store with no gatekeepers" "Install and update free apps. Every download is checked against its SHA-256 fingerprint before it installs. No account, no ads, nothing collected." "Free Lane"
+          m com.bayouburgerllc.app Internet "Order Bayou Burger: gourmet burgers with southern soul, Houston" "Browse the full Bayou Burger menu with prices, build your order and text or call it in. Pickup, delivery and catering from a Houston ghost kitchen. No account needed." "Bayou Burger" "Bayou Burger LLC" "https://bayouburgerllc.com"
           m com.frantzvardman.lovly Money "Credit repair you do yourself: Learn, Make, Record, Send" "Learn your credit rights, make dispute and debt-validation letters that cite the exact law, track every legal deadline, and print or share them. Free, no account, no ads, no internet permission." "Lovly: Credit Repair"
           m com.frantzvardman.reclaim Security "Protect your name, number and peace" "Log evidence of harassment or misuse of your name and number, write takedown, data-broker and stop-contact letters that state the law accurately, and find the right help. Free, no account, no internet permission." "Reclaim: Name & Privacy Defense"
           m com.frantzvardman.rexvoice Multimedia "Clone your voice on your phone, with consent" "Record 2 to 5 minutes of your voice, add the speaker's spoken consent, and Rex Voice clones it on the phone itself (Pocket TTS by Kyutai, CC BY 4.0). Turn scripts into narration in that voice. Nothing is uploaded: no internet permission." "Rex Voice"
@@ -88,7 +90,7 @@ jobs:
           icon() { mkdir -p "metadata/$1/en-US/phoneScreenshots"; cp "../shop/site/img/app/$2.png" "metadata/$1/en-US/icon.png"; }
           icon com.ownit.app ownit; icon com.safetospend.app safetospend; icon com.leadhunter.app leadhunter
           icon com.frantzvardman.safepocket safepocket; icon com.frantzvardman.crownrush crownrush; icon com.frantzvardman.purebeats purebeats
-          icon com.frantzvardman.signalfire signalfire; icon com.frantzvardman.clearcheck clearcheck; icon com.frantzvardman.rexvoice rexvoice; icon com.frantzvardman.freelane freelane; icon com.frantzvardman.lovly lovly; icon com.frantzvardman.reclaim reclaim
+          icon com.frantzvardman.signalfire signalfire; icon com.frantzvardman.clearcheck clearcheck; icon com.frantzvardman.rexvoice rexvoice; icon com.frantzvardman.freelane freelane; icon com.frantzvardman.lovly lovly; icon com.frantzvardman.reclaim reclaim; icon com.bayouburgerllc.app bayouburger
           shots() { T=$(mktemp -d); git clone -q --depth 1 -b "$2" "https://x-access-token:${GT}@github.com/${GITHUB_REPOSITORY}.git" "$T" 2>/dev/null || { echo "::warning::no $2"; return 0; }
             i=1; for f in $3; do [ -f "$T/$f" ] && cp "$T/$f" "metadata/$1/en-US/phoneScreenshots/$i.png" && i=$((i+1)); done; }
           shots com.frantzvardman.safepocket sp-screens "en-1-papers.png en-2-dates.png en-4-guides.png 07-lock.png"
