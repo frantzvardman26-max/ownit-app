@@ -9,6 +9,8 @@
 #   5. Your biggest files: listed only, never moved
 set -u
 S="$HOME/storage/shared"
+# Why readlink: on phones, storage/shared is a shortcut (symlink) to the real storage, and find won't walk into a shortcut.
+[ -L "$S" ] && S=$(readlink -f "$S")
 if [ ! -d "$S" ]; then
   echo "First give Termux access to your files: run  termux-setup-storage  , tap Allow, then run this again."; exit 1
 fi
