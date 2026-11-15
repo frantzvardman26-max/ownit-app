@@ -8,6 +8,7 @@
 #   4. Empty folders
 #   5. Your biggest files: listed only, never moved
 set -u
+MODE=review; [ "${1:-}" = "--delete" ] && MODE=delete
 S="$HOME/storage/shared"
 # Why readlink: on phones, storage/shared is a shortcut (symlink) to the real storage, and find won't walk into a shortcut.
 [ -L "$S" ] && S=$(readlink -f "$S")
@@ -18,8 +19,10 @@ command -v sha256sum >/dev/null || { echo "Installing tools…"; pkg install -y 
 STAMP=$(date +%Y-%m-%d_%H%M); BIN="$S/_to_review/$STAMP"; LOG="$BIN/moved.txt"; UNDO="$BIN/undo.sh"; TMP=$(mktemp -d)
 human() { awk -v b="$1" 'BEGIN{ s="B KB MB GB"; split(s,u," "); i=1; while (b>=1024 && i<4) { b/=1024; i++ } printf (i==1?"%d %s":"%.1f %s"), b, u[i] }'; }
 total() { local t=0 f; while IFS= read -r f; do [ -f "$f" ] && t=$((t + $(stat -c %s "$f" 2>/dev/null || echo 0))); done < "$1"; echo $t; }
-ask() { local a; read -r -p "$1 [y/N] " a; [ "$a" = "y" ] || [ "$a" = "Y" ]; }
+ask() { [ "$MODE" = delete ] && return 0; local a; read -r -p "$1 [y/N] " a; [ "$a" = "y" ] || [ "$a" = "Y" ]; }
+DOOMED=$(mktemp)   # delete mode: everything found goes here, deleted only after you type DELETE
 moveall() { # list-file category
+  if [ "$MODE" = delete ]; then cat "$1" >> "$DOOMED"; echo "  added to the delete list."; return; fi
   mkdir -p "$BIN"; [ -f "$UNDO" ] || { echo '#!/data/data/com.termux/files/usr/bin/bash' > "$UNDO"; echo '# Puts every moved file back where it was.' >> "$UNDO"; chmod +x "$UNDO"; }
   local n=0 f rel dest
   while IFS= read -r f; do [ -e "$f" ] || continue
@@ -73,11 +76,30 @@ N=$(wc -l < "$TMP/empty"); if [ "$N" -gt 0 ]; then
   echo "4) $N empty folder(s)."; sed "s|$S/||" "$TMP/empty" | head -10 | sed 's/^/     /'
   ask "   Move them to the review folder?" && moveall "$TMP/empty" empty-folders; echo; fi
 
+if [ "$MODE" = delete ]; then
+  # Also: files already in the phone's trash, and everything waiting in earlier review folders.
+  find "$S" -path "$S/_to_review" -prune -o -type f -name '.trashed-*' -print 2>/dev/null >> "$DOOMED"
+  [ -d "$S/_to_review" ] && echo "$S/_to_review" >> "$DOOMED"
+fi
+
 # 5. Biggest files: for you to decide, never moved
 echo "5) Your 15 biggest files (listed only, nothing is moved):"
 sort -rn "$TMP/sizes" | head -15 | while IFS=$'\t' read -r sz p; do printf "     %9s  %s\n" "$(human "$sz")" "${p#$S/}"; done
 echo
-if [ -s "$LOG" ] 2>/dev/null; then
+if [ "$MODE" = delete ]; then
+  sort -u "$DOOMED" -o "$DOOMED"; N=$(wc -l < "$DOOMED")
+  if [ "$N" -eq 0 ]; then echo "Nothing to delete."; else
+    SZ=$(tr '\n' '\0' < "$DOOMED" | du -csh --files0-from=- 2>/dev/null | tail -1 | cut -f1)
+    echo "READY TO DELETE FOR GOOD: $N item(s), about $SZ. Your big files above are NOT included."
+    sed "s|$S/||" "$DOOMED" | head -25 | sed 's/^/     /'; [ "$N" -gt 25 ] && echo "     …and $((N-25)) more"
+    echo; read -r -p "This can't be undone. Type DELETE to delete them, anything else to cancel: " a
+    if [ "$a" = "DELETE" ]; then
+      while IFS= read -r f; do [ -e "$f" ] && rm -rf -- "$f"; done < "$DOOMED"
+      find "$S" -mindepth 2 \( -path "$S/Android" \) -prune -o -type d -empty ! -name '.*' -delete 2>/dev/null
+      echo "Deleted. Freed about $SZ."
+    else echo "Cancelled. Nothing was deleted."; fi
+  fi
+elif [ -s "$LOG" ] 2>/dev/null; then
   echo "Done. Moved items are in:  Internal storage/_to_review/$STAMP"
   echo "Freed up: $(du -sh "$BIN" 2>/dev/null | cut -f1) (once you delete that folder)."
   echo "Changed your mind? Run:  bash \"$UNDO\"   to put everything back."
@@ -88,4 +110,4 @@ echo "Also worth a look (Termux can't do these for you):"
 echo "  • Settings › Apps: sort by size or last used, and uninstall apps you don't use."
 echo "  • Settings › Storage › Apps: 'Clear cache' on the biggest apps (keeps your data)."
 echo "  • Settings › Battery: check which apps use the most in the background."
-rm -rf "$TMP"
+rm -rf "$TMP" "$DOOMED"
