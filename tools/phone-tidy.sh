@@ -70,8 +70,10 @@ N=$(wc -l < "$TMP/thumbs"); if [ "$N" -gt 0 ]; then
   echo "3) Thumbnail caches: $N file(s), $(human $(total "$TMP/thumbs")). Your gallery rebuilds these when needed."
   ask "   Move them to the review folder?" && moveall "$TMP/thumbs" thumbnails; echo; fi
 
-# 4. Empty folders (not hidden ones, not Android's own)
-find "$S" -mindepth 2 \( -path "$S/Android" -o -path "$S/_to_review" \) -prune -o -type d -empty ! -name '.*' -print 2>/dev/null > "$TMP/empty"
+# 4. Empty folders (not hidden ones, not Android's own). Skipped in delete mode: they free no space, and in projects
+#    and organized archives an empty folder can be a placeholder that matters.
+find "$S/" \( -path "$S/Android" -o -path "$S/_to_review" -o -name '.*' -o -name 'node_modules' \) -prune -o -path "$S/*/*" -type d -empty -print 2>/dev/null > "$TMP/empty"
+[ "$MODE" = delete ] && : > "$TMP/empty"
 N=$(wc -l < "$TMP/empty"); if [ "$N" -gt 0 ]; then
   echo "4) $N empty folder(s)."; sed "s|$S/||" "$TMP/empty" | head -10 | sed 's/^/     /'
   ask "   Move them to the review folder?" && moveall "$TMP/empty" empty-folders; echo; fi
@@ -95,7 +97,6 @@ if [ "$MODE" = delete ]; then
     echo; read -r -p "This can't be undone. Type DELETE to delete them, anything else to cancel: " a
     if [ "$a" = "DELETE" ]; then
       while IFS= read -r f; do [ -e "$f" ] && rm -rf -- "$f"; done < "$DOOMED"
-      find "$S" -mindepth 2 \( -path "$S/Android" \) -prune -o -type d -empty ! -name '.*' -delete 2>/dev/null
       echo "Deleted. Freed about $SZ."
     else echo "Cancelled. Nothing was deleted."; fi
   fi
