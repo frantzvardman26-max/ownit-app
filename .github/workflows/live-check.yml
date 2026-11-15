@@ -1,0 +1,21 @@
+name: Live check (fetch pages, show title/H1 and a phrase)
+on:
+  workflow_dispatch:
+    inputs:
+      urls: {description: 'Space-separated URLs', required: true}
+      phrase: {description: 'Text to look for', required: false, default: ''}
+permissions: {contents: read}
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch
+        env: {URLS: "${{ inputs.urls }}", PHRASE: "${{ inputs.phrase }}"}
+        run: |
+          for u in $URLS; do
+            b=$(curl -sL -H 'Cache-Control: no-cache' -w '\nHTTP %{http_code}' "$u?nocache=$RANDOM")
+            echo "== $u :: $(echo "$b" | tail -1)"
+            echo "$b" | grep -o '<title>[^<]*' | head -1
+            echo "$b" | grep -o '<h1[^>]*>[^<]*' | head -1
+            [ -n "$PHRASE" ] && echo "phrase found: $(echo "$b" | grep -c "$PHRASE")"
+          done
