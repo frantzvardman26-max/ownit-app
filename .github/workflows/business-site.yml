@@ -1,0 +1,26 @@
+name: Business site (deploy one rebuilt website)
+# Deploys sites/built/<id> from the private repo to its Cloudflare Pages project fv-<id>. Free here (public repo).
+on:
+  workflow_dispatch:
+    inputs:
+      site:
+        description: 'Site id (frantz, vardman, houstonroof, summerlinroof, victor, alliance, mikos, delicias, bayou, greatminds)'
+        required: true
+permissions: { contents: read }
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      SITE: ${{ inputs.site }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { repository: frantzvardman26-max/3D, token: "${{ secrets.BUILD_TOKEN }}", sparse-checkout: sites }
+      - name: Publish fv-${{ inputs.site }}
+        run: |
+          echo "$SITE" | grep -Eq '^[a-z]+$' && [ -d "sites/built/$SITE" ] || { echo "::error::Unknown site $SITE"; exit 1; }
+          cp sites/forms.js "sites/built/$SITE/forms.js"; cd "sites/built/$SITE"
+          npx --yes wrangler@3 pages project list | grep -q "fv-$SITE " || npx --yes wrangler@3 pages project create "fv-$SITE" --production-branch main
+          npx --yes wrangler@3 pages deploy . --project-name "fv-$SITE" --branch main --commit-dirty=true
+          echo "Live: https://fv-$SITE.pages.dev"
