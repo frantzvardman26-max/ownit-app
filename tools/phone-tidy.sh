@@ -44,8 +44,16 @@ fi
 awk -F'\t' '{c[$1]++; p[$1]=p[$1] $2 "\n"} END{for (s in c) if (c[s]>1) printf "%s", p[s]}' "$TMP/sizes" | sed '/^$/d' > "$TMP/same"
 : > "$TMP/dups"
 if [ -s "$TMP/same" ]; then
-  tr '\n' '\0' < "$TMP/same" | xargs -0 sha256sum 2>/dev/null | sort > "$TMP/hashes"
-  awk '{h=$1; $1=""; sub(/^ +/,""); if (h==last) print; last=h}' "$TMP/hashes" > "$TMP/dups"   # every copy after the first
+  # Which copy to keep: the one in your organized folders (Camera, Pictures, Music, Documents) beats Download,
+  # messaging-app folders, thumbnail caches and "(1)" copies. Lower score = keep.
+  tr '\n' '\0' < "$TMP/same" | xargs -0 sha256sum 2>/dev/null | awk '{h=$1; $1=""; sub(/^ +/,""); p=$0; s=50
+    if (p ~ /\/(DCIM|Pictures|Music|Documents)\//) s=10
+    if (p ~ /\/(Download|Downloads)\//) s=60
+    if (p ~ /WhatsApp|Telegram|Messenger|Signal/) s=70
+    if (p ~ /\.thumbnails/) s=90
+    if (p ~ /\([0-9]+\)\.[A-Za-z0-9]+$/) s+=5
+    printf "%s\t%03d\t%s\n", h, s, p}' | sort -t$'\t' -k1,1 -k2,2n -k3,3 > "$TMP/hashes"
+  awk -F'\t' '{if ($1==last) print $3; last=$1}' "$TMP/hashes" > "$TMP/dups"   # every copy after the one to keep
 fi
 N=$(wc -l < "$TMP/dups"); if [ "$N" -gt 0 ]; then
   echo "2) $N exact duplicate file(s), $(human $(total "$TMP/dups")). One copy of each is always kept."
