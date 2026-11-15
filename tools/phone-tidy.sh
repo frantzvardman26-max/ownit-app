@@ -27,7 +27,6 @@ moveall() { # list-file category
     if mv -n "$f" "$dest" 2>/dev/null; then n=$((n+1)); echo "$rel" >> "$LOG"; printf 'mkdir -p "%s"; mv -n "%s" "%s"\n' "$(dirname "$f")" "$dest" "$f" >> "$UNDO"; fi
   done < "$1"; echo "  moved $n item(s)."
 }
-SKIP='-path */_to_review -prune -o -path */Android/data -prune -o -path */Android/obb -prune -o'
 echo "Scanning your phone's shared storage (this can take a minute)…"; echo
 
 # 1. Installer files
@@ -38,7 +37,10 @@ N=$(wc -l < "$TMP/apk"); if [ "$N" -gt 0 ]; then
   ask "   Move them to the review folder?" && moveall "$TMP/apk" installers; echo; fi
 
 # 2. Exact duplicates (same size first, then same fingerprint)
-eval find "\"$S\"" $SKIP -type f -size +100k -printf "'%s\t%p\n'" 2>/dev/null | sort -n > "$TMP/sizes"
+find "$S/" \( -path "$S/_to_review" -o -path "$S/Android/data" -o -path "$S/Android/obb" \) -prune -o -type f -size +100k -printf '%s\t%p\n' 2>/dev/null | sort -n > "$TMP/sizes"
+if [ ! -s "$TMP/sizes" ]; then
+  echo "   (Couldn't list files in $S. If Termux was just updated, run  termux-setup-storage  , answer y, tap Allow, and try again.)"; echo
+fi
 awk -F'\t' '{c[$1]++; p[$1]=p[$1] $2 "\n"} END{for (s in c) if (c[s]>1) printf "%s", p[s]}' "$TMP/sizes" | sed '/^$/d' > "$TMP/same"
 : > "$TMP/dups"
 if [ -s "$TMP/same" ]; then
