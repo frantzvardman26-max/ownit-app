@@ -152,6 +152,18 @@ jobs:
           entry ownit https://github.com/frantzvardman26-max/ownit-app/releases/latest/download/OwnIt.apk "Own It" "Music contracts, royalties and business tools for artists" "$SHOP/img/app/ownit.png" ""
           entry rexvoice https://github.com/frantzvardman26-max/ownit-app/releases/download/rexvoice/RexVoice.apk "Rex Voice" "Clone your voice on your phone, with consent" "$SHOP/img/app/rexvoice.png" "$SHOP/img/app/shots/rexvoice-1.webp $SHOP/img/app/shots/rexvoice-2.webp $SHOP/img/app/shots/rexvoice-3.webp $SHOP/img/app/shots/rexvoice-4.webp"
           [ -f fd/repo/extras.json ] && cat fd/repo/extras.json | head -40 || echo "[]" > fd/repo/extras.json
+      - name: What's new notes (android/<app>/docs/WHATSNEW.md -> repo/whatsnew.json, shown in Free Lane)
+        run: |
+          python3 - <<'PY'
+          import glob, json, os, re
+          out = {}
+          for f in glob.glob('android/*/docs/WHATSNEW.md'):
+              g = open(os.path.join(os.path.dirname(os.path.dirname(f)), 'build.gradle.kts')).read() if os.path.exists(os.path.join(os.path.dirname(os.path.dirname(f)), 'build.gradle.kts')) else ''
+              m = re.search(r'applicationId\s*=\s*"([^"]+)"', g)
+              if m: out[m.group(1)] = open(f).read().strip()[:1200]
+          json.dump(out, open('fd/repo/whatsnew.json', 'w'), indent=1)
+          print(json.dumps(out, indent=1)[:1500])
+          PY
       - name: Publish (branch "fdroid" of the public download repo)
         env:
           GH_TOKEN: ${{ secrets.BUILD_TOKEN }}
