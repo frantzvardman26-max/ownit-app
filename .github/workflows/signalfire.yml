@@ -10,6 +10,7 @@ on:
 # The code is checked out from the private repo with BUILD_TOKEN; only the finished app is published.
 permissions:
   contents: write
+  actions: write
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -115,3 +116,8 @@ jobs:
           gh release create signalfire SignalFire.apk $(ls *-GooglePlay.aab 2>/dev/null) -R "$REPO" --latest=false \
             --title "Signal Fire" --notes "Signal Fire: talk, share supplies, mark safe places and get first aid with nearby phones, no internet or cell service needed. Free. Build $APP_BUILD_NUMBER." \
             && echo "Public download: https://github.com/$REPO/releases/download/signalfire/SignalFire.apk" || echo "::warning::Couldn't publish the public download"
+      - name: Refresh the F-Droid library so phones see this update
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run fdroid-repo.yml -R "$GITHUB_REPOSITORY" || echo "::warning::Couldn't start the F-Droid refresh"

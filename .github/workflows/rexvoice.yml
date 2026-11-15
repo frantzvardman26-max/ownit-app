@@ -10,6 +10,7 @@ on:
 # The code is checked out from the private repo with BUILD_TOKEN; only the finished app is published.
 permissions:
   contents: write
+  actions: write
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -134,3 +135,8 @@ jobs:
           gh release create rexvoice RexVoice.apk $(ls *-GooglePlay.aab 2>/dev/null) -R "$REPO" --latest=false \
             --title "Rex Voice" --notes "Rex Voice: record your voice, keep it in a private vault with spoken consent, and turn scripts into narration. Offline, no internet permission. Build $APP_BUILD_NUMBER." \
             && echo "Public download: https://github.com/$REPO/releases/download/rexvoice/RexVoice.apk" || echo "::warning::Couldn't publish the public download"
+      - name: Refresh the F-Droid library so phones see this update
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run fdroid-repo.yml -R "$GITHUB_REPOSITORY" || echo "::warning::Couldn't start the F-Droid refresh"

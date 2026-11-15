@@ -11,7 +11,7 @@ permissions:
   contents: write
 concurrency:
   group: fdroid-repo
-  cancel-in-progress: false
+  cancel-in-progress: true   # many builds finishing together only need the last refresh
 jobs:
   publish:
     if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
