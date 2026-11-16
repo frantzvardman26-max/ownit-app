@@ -7,11 +7,13 @@ Free Lane is a free Android app store made by Frantz Vardman (J & F Studios).
 ## The short version
 
 - No account, no ads, no analytics, no tracking.
-- Free Lane does not collect or send any information about you.
+- Free Lane does not collect or send any information about you, unless you're a beta tester and choose to connect your tester code (see below).
 
 ## What Free Lane connects to
 
 - **The store catalog and app files**, downloaded from GitHub (raw.githubusercontent.com and github.com), where the apps are published. Like any website, GitHub can see the request (your IP address and that a file was downloaded). Free Lane sends nothing else.
+
+**Beta testers only.** If you add a beta tester code (Updates → Beta tester), each time Free Lane installs or updates an app it sends the shop your tester code, which app, its version, and whether it was an install or an update, so Frantz can see what you're testing. Remove the code any time to stop. Nothing is sent without a code.
 - **App images** (icons and screenshots), from the same place.
 - The **Submit** button opens the submission page on shop.frantzmichaelsthilairevardman.com in your browser.
 
