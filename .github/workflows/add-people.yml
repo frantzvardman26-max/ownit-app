@@ -1,0 +1,25 @@
+name: Add people to the control panel
+# Adds the people listed in the private repo (people/add/*.json) to People, and makes them beta testers when marked.
+# Their details stay in the private repo: this log only shows names. Running it again never adds anyone twice.
+on:
+  workflow_dispatch:
+permissions: { contents: read }
+jobs:
+  add:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: frantzvardman26-max/3D
+          token: ${{ secrets.BUILD_TOKEN }}
+      - name: Add them
+        run: |
+          python3 shop/tools/add_people.py
+          npx -y wrangler@3 d1 execute shop-downloads --remote --file people.sql > /dev/null
+          echo "--- People list now (names only):"
+          npx -y wrangler@3 d1 execute shop-downloads --remote --json --command "SELECT p.name, p.role, CASE WHEN IFNULL(p.beta_code,'') = '' THEN 'no' ELSE 'yes' END AS tester FROM partners p ORDER BY p.id" | jq -r '.[0].results[] | "\(.name) · \(.role) · beta tester: \(.tester)"'
+          echo "--- Active testers and how many apps each has:"
+          npx -y wrangler@3 d1 execute shop-downloads --remote --json --command "SELECT name, LENGTH(apps) - LENGTH(REPLACE(apps, ',', '')) + (apps <> '') AS n FROM beta_testers WHERE status = 'active'" | jq -r '.[0].results[] | "\(.name): \(.n) apps"'
