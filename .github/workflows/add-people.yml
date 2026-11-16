@@ -22,4 +22,4 @@ jobs:
           echo "--- People list now (names only):"
           npx -y wrangler@3 d1 execute shop-downloads --remote --json --command "SELECT p.name, p.role, CASE WHEN IFNULL(p.beta_code,'') = '' THEN 'no' ELSE 'yes' END AS tester FROM partners p ORDER BY p.id" | jq -r '.[0].results[] | "\(.name) · \(.role) · beta tester: \(.tester)"'
           echo "--- Active testers and how many apps each has:"
-          npx -y wrangler@3 d1 execute shop-downloads --remote --json --command "SELECT name, LENGTH(apps) - LENGTH(REPLACE(apps, ',', '')) + (apps <> '') AS n FROM beta_testers WHERE status = 'active'" | jq -r '.[0].results[] | "\(.name): \(.n) apps"'
+          npx -y wrangler@3 d1 execute shop-downloads --remote --json --command "SELECT name, CASE WHEN apps = '*' THEN 'every app' ELSE CAST(LENGTH(apps) - LENGTH(REPLACE(apps, ',', '')) + (apps <> '') AS TEXT) || ' apps' END AS n FROM beta_testers WHERE status = 'active'" | jq -r '.[0].results[] | "\(.name): \(.n)"'
