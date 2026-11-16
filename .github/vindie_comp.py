@@ -11,9 +11,10 @@ if os.environ.get('IMG_URL'):
     raw = urllib.request.urlopen(urllib.request.Request(os.environ['IMG_URL'], headers={'User-Agent': 'Mozilla/5.0'}), timeout=30).read()
     im = Image.open(io.BytesIO(raw)).convert('RGB'); W, H = 1200, 628; k = max(W / im.width, H / im.height)
     im = im.resize((round(im.width * k), round(im.height * k))); l, t = (im.width - W) // 2, (im.height - H) // 2; im = im.crop((l, t, l + W, t + H))
-    for qual in (80, 70, 60, 50):
-        b = io.BytesIO(); im.save(b, 'JPEG', quality=qual); img = 'data:image/jpeg;base64,' + base64.b64encode(b.getvalue()).decode()
-        if len(img) < 200000: break
+    # one SQL statement must stay under ~100 KB, so keep the picture under 85 KB
+    for w, qual in ((1200, 72), (1200, 60), (1000, 60), (900, 55), (800, 50)):
+        b = io.BytesIO(); im.resize((w, round(w * 628 / 1200))).save(b, 'JPEG', quality=qual, optimize=True); img = 'data:image/jpeg;base64,' + base64.b64encode(b.getvalue()).decode()
+        if len(img) < 85000: break
 now = datetime.datetime.now(datetime.timezone.utc); end = now + datetime.timedelta(weeks=weeks); iso = lambda d: d.strftime('%Y-%m-%dT%H:%M:%S.000Z')
 code = 'VA-' + ''.join(secrets.choice('ABCDEFGHJKMNPQRSTUVWXYZ23456789') for _ in range(6))
 open('comp.sql', 'w').write("INSERT INTO vindie_ads (code, key, biz, email, headline, body, url, img, tier, weeks, status, created, starts, ends, note) SELECT "
