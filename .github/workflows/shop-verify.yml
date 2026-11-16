@@ -49,9 +49,9 @@ jobs:
           repository: frantzvardman26-max/3D   # the private code; this public repo only runs the build (free minutes)
           token: ${{ secrets.BUILD_TOKEN }}
       - name: Install image tools (thumbnails, icons, press kit)
-        run: pip install --quiet pillow && (fc-list | grep -q DejaVuSerif-Bold || sudo apt-get install -y -qq fonts-dejavu-core) && (which ffmpeg || (sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg))
+        run: pip install --quiet pillow pypdf && (fc-list | grep -q DejaVuSerif-Bold || sudo apt-get install -y -qq fonts-dejavu-core) && (which ffmpeg || (sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg))
       - name: Build the shop (site + products packed into the download function)
-        run: python3 shop/tools/build_templates.py && python3 shop/tools/build_site.py
+        run: python3 shop/tools/build_templates.py && python3 shop/tools/stamp_owner.py shop/site shop/products && python3 shop/tools/build_site.py
       - name: Publish to Cloudflare Pages
         run: |
           if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then echo "::warning::Cloudflare secrets not added yet, so the shop isn't published."; exit 0; fi
