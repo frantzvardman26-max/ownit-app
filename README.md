@@ -46,3 +46,6 @@ Planners, templates and guides: **[shop.frantzmichaelsthilairevardman.com](https
 The apps are built here by GitHub Actions (free for public repositories). The source code stays private: builds
 check it out with the `BUILD_TOKEN` secret, and only the finished apps are published on this page.
 "Auto build" checks for code changes every hour and builds just the apps that changed.
+
+---
+© 2026 Frantz Vardman. All rights reserved. See [LICENSE](LICENSE). Apps marked BETA are free to test and not for sale.
