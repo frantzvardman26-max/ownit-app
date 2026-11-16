@@ -1,0 +1,52 @@
+name: Proofs (proof of creation + copy watch)
+# Weekly, free: fingerprints all of Frantz's work, timestamps the ledger (OpenTimestamps on Bitcoin + RFC 3161 from FreeTSA),
+# searches GitHub for copies, saves everything to the private repo, then refreshes the shop so the Control Panel → Track shows it.
+# This repo is public, so nothing here prints work lists or search results; only counts.
+on:
+  schedule:
+    - cron: "17 9 * * 1"   # Mondays 09:17 UTC
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: write          # to start the shop refresh afterwards
+jobs:
+  proofs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: frantzvardman26-max/3D
+          token: ${{ secrets.BUILD_TOKEN }}
+          fetch-depth: 1
+      - name: Fingerprint everything (ledger)
+        run: python3 shop/tools/proofs.py > /dev/null && ls proofs/ledger | tail -1
+      - name: Timestamp the ledger (Bitcoin via OpenTimestamps, and RFC 3161 via FreeTSA)
+        run: |
+          set -e
+          pip install --quiet opentimestamps-client
+          L=$(ls proofs/ledger/*.json | sort | tail -1)
+          rm -f "$L.ots" "$L.tsr"
+          ots stamp "$L" || echo "::warning::OpenTimestamps stamp failed this week"
+          for f in proofs/ledger/*.ots; do ots upgrade "$f" >/dev/null 2>&1 || true; done   # older receipts become Bitcoin-confirmed
+          openssl ts -query -data "$L" -no_nonce -sha512 -cert -out "$L.tsq"
+          curl -fsS -H "Content-Type: application/timestamp-query" --data-binary "@$L.tsq" https://freetsa.org/tsr -o "$L.tsr" || echo "::warning::FreeTSA timestamp failed this week"
+          mkdir -p proofs/freetsa
+          [ -s proofs/freetsa/tsa.crt ] || curl -fsS https://freetsa.org/files/tsa.crt -o proofs/freetsa/tsa.crt || true
+          [ -s proofs/freetsa/cacert.pem ] || curl -fsS https://freetsa.org/files/cacert.pem -o proofs/freetsa/cacert.pem || true
+          if [ -s "$L.tsr" ] && [ -s proofs/freetsa/cacert.pem ]; then openssl ts -verify -in "$L.tsr" -queryfile "$L.tsq" -CAfile proofs/freetsa/cacert.pem -untrusted proofs/freetsa/tsa.crt >/dev/null && echo "RFC 3161 receipt verified"; fi
+          rm -f "$L.tsq"
+      - name: Copy watch (GitHub code search)
+        env:
+          GH_TOKEN: ${{ secrets.BUILD_TOKEN }}
+        run: python3 shop/tools/copywatch.py
+      - name: Save to the private repo
+        run: |
+          git config user.name "Frantz Vardman"; git config user.email "frantzvardman26-max@users.noreply.github.com"
+          git add proofs
+          git diff --cached --quiet && { echo "nothing new"; exit 0; }
+          git commit -q -m "Proofs: weekly ledger, timestamps and copy watch"
+          for i in 1 2 3; do git pull -q --rebase origin main && git push -q origin HEAD:main && break; sleep 5; done
+      - name: Refresh the shop (Track tab shows the new proofs)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run shop-verify.yml -R ${{ github.repository }} --ref main || true
