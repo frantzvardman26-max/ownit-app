@@ -1,0 +1,15 @@
+name: Post Hub scheduler (posts what's due, every hour)
+# Calls the shop's Post Hub. It only posts things Frantz already scheduled in the control panel, each once.
+# No secrets needed and nothing personal in this log: the reply is just counts.
+on:
+  schedule:
+    - cron: '20 * * * *'
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Post what's due
+        run: curl -fsS --max-time 280 "https://shop.frantzmichaelsthilairevardman.com/api/social?run=1" || echo "nothing posted this time"
