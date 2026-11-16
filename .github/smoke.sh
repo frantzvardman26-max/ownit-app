@@ -9,6 +9,8 @@ adb install -r -g "$f" | tail -1;
 adb logcat -c;
 adb shell monkey -p "$pkg" -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1;
 sleep 12;
+# One retry: right after a reinstall of the same app, the first launch can race the install and never start.
+if ! adb shell pidof "$pkg" >/dev/null; then adb shell monkey -p "$pkg" -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1; sleep 10; fi;
 if adb shell pidof "$pkg" >/dev/null;
 then echo "RESULT $pkg: running OK";
 else echo "RESULT $pkg: NOT RUNNING";
