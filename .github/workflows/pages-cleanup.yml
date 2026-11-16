@@ -1,0 +1,51 @@
+name: Remove old shop copies (private-content cleanup)
+# Why: every Cloudflare Pages deploy keeps an old copy at its own hash link (xxxx.project.pages.dev).
+# When something private was published by mistake, the old copies still hold it after the fix.
+# This deletes the deployments created in a time window, always keeping the live one.
+on:
+  workflow_dispatch:
+    inputs:
+      project:
+        description: "Cloudflare Pages project"
+        default: frantz-vardman-shop
+      since:
+        description: "Delete deployments created at or after this time (UTC, ISO 8601)"
+        default: "2026-11-16T00:00:00Z"
+      until:
+        description: "...and before this time (UTC, ISO 8601; blank = now)"
+        default: ""
+permissions:
+  contents: read
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    env:
+      CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      PROJECT: ${{ inputs.project }}
+      SINCE: ${{ inputs.since }}
+      UNTIL: ${{ inputs.until }}
+    steps:
+      - name: Delete old copies, keep the live one
+        run: |
+          set -euo pipefail
+          [ -n "$CF_TOKEN" ] && [ -n "$CF_ACCOUNT" ] || { echo "::error::Cloudflare secrets missing"; exit 1; }
+          echo "$PROJECT" | grep -Eq '^[a-z0-9-]+$' || { echo "::error::bad project name"; exit 1; }
+          API="https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT/pages/projects/$PROJECT"
+          H=(-H "Authorization: Bearer $CF_TOKEN")
+          LIVE=$(curl -fsS "${H[@]}" "$API" | jq -r '.result.canonical_deployment.id')
+          [ -n "$LIVE" ] && [ "$LIVE" != null ] || { echo "::error::couldn't find the live deployment"; exit 1; }
+          echo "Live deployment (kept): $LIVE"
+          : > ids
+          for page in $(seq 1 20); do
+            R=$(curl -fsS "${H[@]}" "$API/deployments?page=$page&per_page=25")
+            N=$(echo "$R" | jq '.result | length'); [ "$N" -gt 0 ] || break
+            echo "$R" | jq -r --arg s "$SINCE" --arg u "${UNTIL:-9999}" --arg live "$LIVE" \
+              '.result[] | select(.created_on >= $s and .created_on < $u and .id != $live) | .id' >> ids
+          done
+          echo "To delete: $(wc -l < ids)"
+          ok=0; fail=0
+          while read -r id; do
+            if curl -fsS -X DELETE "${H[@]}" "$API/deployments/$id?force=true" >/dev/null; then ok=$((ok+1)); else fail=$((fail+1)); echo "::warning::couldn't delete $id"; fi
+          done < ids
+          echo "Deleted $ok old copies ($fail failed). Live deployment untouched."
