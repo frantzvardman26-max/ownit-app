@@ -22,8 +22,8 @@ jobs:
       - name: Download the published APKs
         run: |
           mkdir apks && cd apks
-          for t in freelane lovly reclaim bayouburger rexvoice signalfire safetospend safepocket purebeats crownrush clearcheck giants vindie posthub; do gh release download $t -R "$GITHUB_REPOSITORY" -p '*.apk' || true; done
-          gh release download v202 -R "$GITHUB_REPOSITORY" -p 'OwnIt.apk' || true
+          for t in freelane lovly reclaim bayouburger rexvoice signalfire safetospend safepocket purebeats crownrush clearcheck giants vindie posthub palm; do gh release download $t -R "$GITHUB_REPOSITORY" -p '*.apk' || true; done
+          gh release download "$(gh api repos/$GITHUB_REPOSITORY/releases/latest -q .tag_name)" -R "$GITHUB_REPOSITORY" -p 'OwnIt.apk' || true   # always the newest Own It
           gh release download store-files -R "$GITHUB_REPOSITORY" -p 'FreeLane-store.apk' -p 'SignalFire-store.apk' -p 'LeadHunter-store.apk' || true
           ls -la
       - name: Run on emulator
