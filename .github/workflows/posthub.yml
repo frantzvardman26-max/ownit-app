@@ -1,0 +1,68 @@
+name: Build Post Hub
+on:
+  workflow_dispatch:
+# Built here, in the public download repo, because GitHub Actions is free for public repositories.
+# The code is checked out from the private repo with BUILD_TOKEN; only the finished app is published.
+permissions:
+  contents: write
+  actions: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: frantzvardman26-max/3D   # the private code; this public repo only runs the build (free minutes)
+          token: ${{ secrets.BUILD_TOKEN }}
+      - name: Build number (continues from the old private builds so phones accept the update)
+        run: echo "APP_BUILD_NUMBER=$GITHUB_RUN_NUMBER" >> "$GITHUB_ENV"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Keep Gradle between builds
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/wrapper/dists
+            ~/.gradle/caches
+          key: gradle-ph-${{ hashFiles('android/gradle/wrapper/gradle-wrapper.properties', 'android/gradle/libs.versions.toml', 'android/posthub/build.gradle.kts') }}
+          restore-keys: gradle-
+      - name: Build Post Hub
+        working-directory: android
+        run: |
+          sed -i '/aapt2FromMavenOverride/d' gradle.properties || true
+          chmod +x gradlew
+          for try in 1 2 3 4; do
+            if ./gradlew :posthub:assembleDebug --no-daemon; then break; fi
+            if [ $try = 4 ]; then exit 1; fi
+            echo "Build attempt $try failed, waiting and trying again..."
+            sleep 45
+          done
+          cp posthub/build/outputs/apk/debug/posthub-debug.apk ../PostHub.apk
+          ls -la ../PostHub.apk
+      - name: Tests (screens on a simulated phone)
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew :posthub:testDebugUnitTest --no-daemon
+      - name: Share screen-test screenshots for review (branch ph-screens)
+        if: always()
+        run: |
+          D=android/posthub/build/screens
+          [ -d "$D" ] || { echo "No screenshots"; exit 0; }
+          T=$(mktemp -d); cp "$D"/*.png "$D"/*.pdf "$T"/ 2>/dev/null || true; ls "$T" | grep -q . || exit 0
+          cd "$T" && git init -q && git checkout -q -b ph-screens && git add -A
+          git -c user.name=ci -c user.email=ci@example.com commit -qm "screens"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" ph-screens || echo "::warning::Couldn't push screenshots"
+      - name: Public download page (frantzvardman26-max/ownit-app, tag "posthub", never marked latest so Own It's updater is unaffected)
+        env:
+          GH_TOKEN: ${{ secrets.BUILD_TOKEN }}
+        run: |
+          # Why: a link anyone can open on their phone to install the app before it's on Google Play.
+          if [ -z "$GH_TOKEN" ]; then echo "No publish token"; exit 0; fi
+          REPO=frantzvardman26-max/ownit-app
+          gh release delete posthub -R "$REPO" -y --cleanup-tag || true
+          gh release create posthub PostHub.apk -R "$REPO" --latest=false \
+            --title "Post Hub (private)" --notes "Frantz Vardman private Post Hub: write once, post everywhere. Needs the owner key or a remembered phone. Build $APP_BUILD_NUMBER." \
+            && echo "Public download: https://github.com/$REPO/releases/download/posthub/PostHub.apk" || echo "::warning::Couldn't publish the public download"
