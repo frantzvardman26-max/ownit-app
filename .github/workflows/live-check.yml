@@ -13,7 +13,8 @@ jobs:
         env: {URLS: "${{ inputs.urls }}", PHRASE: "${{ inputs.phrase }}"}
         run: |
           for u in $URLS; do
-            b=$(curl -sL -H 'Cache-Control: no-cache' -w '\nHTTP %{http_code}' "$u?nocache=$RANDOM")
+            case $u in */get/*) q="?ref=check";; *) q="?nocache=$RANDOM";; esac   # downloads made by this check are left out of the stats
+            b=$(curl -sL -H 'Cache-Control: no-cache' -w '\nHTTP %{http_code}' "$u$q")
             echo "== $u :: $(echo "$b" | tail -1)"
             echo "$b" | grep -o '<title>[^<]*' | head -1
             echo "$b" | grep -o '<h1[^>]*>[^<]*' | head -1
