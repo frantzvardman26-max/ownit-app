@@ -28,4 +28,4 @@ Use **Settings › Erase everything**, or uninstall the app. Either one permanen
 Safe Pocket is not directed at children under 13 and collects no information from anyone.
 
 ## Contact
-Questions: https://shop.frantzmichaelsthilairevardman.com/support/
+Questions: frantzvardman@mail2one.com
