@@ -1,0 +1,36 @@
+name: Turnstile setup (bot check for the shop)
+# Creates (or reuses) a Cloudflare Turnstile widget for the shop and saves its keys into the Pages project's settings.
+# This repo is public: the secret is masked and never printed. Only "ok"/"failed" lines are shown.
+on: workflow_dispatch
+permissions: {contents: read, actions: write}
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    env:
+      CF: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      ACC: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      GH_TOKEN: ${{ secrets.BUILD_TOKEN }}
+    steps:
+      - name: Create or reuse the widget, save keys to Pages
+        run: |
+          set -e
+          api() { curl -sS -H "Authorization: Bearer $CF" -H 'Content-Type: application/json' "$@"; }
+          B=https://api.cloudflare.com/client/v4/accounts/$ACC
+          L=$(api "$B/challenges/widgets?per_page=50")
+          echo "list ok: $(echo "$L" | jq -r .success) $(echo "$L" | jq -c '[.errors[]?.code]')"
+          KEY=$(echo "$L" | jq -r '[.result[]? | select(.name=="Frantz Vardman Shop")][0].sitekey // empty')
+          if [ -z "$KEY" ]; then
+            C=$(api -X POST "$B/challenges/widgets" -d '{"name":"Frantz Vardman Shop","domains":["shop.frantzmichaelsthilairevardman.com","frantz-vardman-shop.pages.dev"],"mode":"managed","region":"world"}')
+            echo "create ok: $(echo "$C" | jq -r .success) $(echo "$C" | jq -c '[.errors[]?.code]')"
+            KEY=$(echo "$C" | jq -r '.result.sitekey // empty'); SEC=$(echo "$C" | jq -r '.result.secret // empty')
+          else
+            G=$(api "$B/challenges/widgets/$KEY"); SEC=$(echo "$G" | jq -r '.result.secret // empty')
+          fi
+          [ -n "$SEC" ] && echo "::add-mask::$SEC"
+          [ -n "$KEY" ] && [ -n "$SEC" ] || { echo "::error::Couldn't create the widget (the Cloudflare token may need the 'Turnstile: Edit' permission)."; exit 1; }
+          BODY=$(jq -n --arg k "$KEY" --arg s "$SEC" '{deployment_configs:{production:{env_vars:{TURNSTILE_SITEKEY:{type:"plain_text",value:$k},TURNSTILE_SECRET:{type:"secret_text",value:$s}}}}}')
+          P=$(api -X PATCH "$B/pages/projects/frantz-vardman-shop" -d "$BODY")
+          echo "pages save ok: $(echo "$P" | jq -r .success) $(echo "$P" | jq -c '[.errors[]?.code]')"
+          [ "$(echo "$P" | jq -r .success)" = true ] || exit 1
+      - name: Redeploy the shop so the keys take effect
+        run: gh api -X POST repos/frantzvardman26-max/ownit-app/actions/workflows/shop-verify.yml/dispatches -f ref=main
