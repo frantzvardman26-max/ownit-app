@@ -1,0 +1,14 @@
+name: DNS check (email and site records, public info)
+on:
+  workflow_dispatch:
+    inputs:
+      domain: {description: 'Domain', required: true, default: 'frantzmichaelsthilairevardman.com'}
+jobs:
+  dig:
+    runs-on: ubuntu-latest
+    steps:
+      - env: {D: "${{ inputs.domain }}"}
+        run: |
+          for n in "$D" "shop.$D" "_dmarc.$D" "send.$D" "send.shop.$D" "resend._domainkey.$D" "resend._domainkey.shop.$D"; do
+            for t in TXT MX CNAME; do r=$(dig +short $t "$n" | head -5 | tr '\n' ' '); [ -n "$r" ] && echo "REC $n $t: ${r:0:220}"; done
+          done; echo end
