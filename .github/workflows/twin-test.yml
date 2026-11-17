@@ -6,7 +6,7 @@ env:
   TWIN_URL: https://frantz-twin.pages.dev
 jobs:
   web:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04   # Playwright's browser dependencies install on 24.04
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
