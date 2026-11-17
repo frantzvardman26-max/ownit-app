@@ -13,7 +13,7 @@ jobs:
   proofs:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           repository: frantzvardman26-max/3D
           token: ${{ secrets.BUILD_TOKEN }}

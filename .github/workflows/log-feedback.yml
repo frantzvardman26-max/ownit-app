@@ -24,7 +24,7 @@ jobs:
       TEXT: ${{ inputs.text }}
       SOURCE: ${{ inputs.source }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Save it
         run: |
           python3 .github/log_feedback.py

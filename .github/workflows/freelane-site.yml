@@ -15,7 +15,7 @@ jobs:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           repository: frantzvardman26-max/3D   # the private code; this public repo only runs the build (free minutes)
           token: ${{ secrets.BUILD_TOKEN }}

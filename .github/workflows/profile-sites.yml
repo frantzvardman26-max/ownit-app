@@ -15,7 +15,7 @@ jobs:
       GH_TOKEN: ${{ secrets.BUILD_TOKEN }}
       OWNER: frantzvardman26-max
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Create repos if missing
         run: |
           for r in "$OWNER" "$OWNER.github.io"; do

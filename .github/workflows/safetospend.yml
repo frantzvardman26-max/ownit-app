@@ -17,13 +17,13 @@ jobs:
     env:
       INCLUDE_SAFETOSPEND: "1"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           repository: frantzvardman26-max/3D   # the private code; this public repo only runs the build (free minutes)
           token: ${{ secrets.BUILD_TOKEN }}
       - name: Build number (continues from the old private builds so phones accept the update)
         run: echo "APP_BUILD_NUMBER=$((100 + GITHUB_RUN_NUMBER))" >> "$GITHUB_ENV"
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 21

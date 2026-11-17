@@ -19,7 +19,7 @@ jobs:
       APP: ${{ inputs.app }}
       AT: ${{ inputs.at }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Post it
         run: |
           python3 .github/post_notice.py
