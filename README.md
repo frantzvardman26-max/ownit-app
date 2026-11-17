@@ -1,6 +1,34 @@
-# Own It and Safe to Spend: free downloads
+# Free Android apps and games by Frantz Vardman
 
-Free Android apps by Frantz Vardman. No account, no ads.
+Every app is free, with no account and no ads, and most work offline. Install them one by one below, or get them all (with automatic updates) through **[Free Lane](https://shop.frantzmichaelsthilairevardman.com/apps/freelane)**, a free app store, or by adding this library to F-Droid.
+
+📰 New releases first: **[Vindie News](https://shop.frantzmichaelsthilairevardman.com/news/)** · 🛍 **[Frantz Vardman Shop](https://shop.frantzmichaelsthilairevardman.com/)**
+
+## Games
+
+| Game | | |
+|---|---|---|
+| **Giants & Guns** | Side-view shooter: endless rooms, giants, power-ups and guns | [Download](https://shop.frantzmichaelsthilairevardman.com/get/giants?ref=github) · [Play in browser](https://shop.frantzmichaelsthilairevardman.com/giants/) · [Gold Edition](https://shop.frantzmichaelsthilairevardman.com/p/giants-gold) |
+| **Bombs & Bullion** | One-thumb arcade game with 10 animal superheroes and a driving mode | [Download](https://shop.frantzmichaelsthilairevardman.com/get/crownrush?ref=github) · [Play in browser](https://shop.frantzmichaelsthilairevardman.com/play/) |
+
+## Apps
+
+| App | What it does | |
+|---|---|---|
+| **Vindie News** | Every new app, game, tool and deal | [Download](https://shop.frantzmichaelsthilairevardman.com/get/vindienews?ref=github) |
+| **Free Lane** | A free app store: one-tap installs, automatic updates, fingerprint-checked downloads | [Download](https://shop.frantzmichaelsthilairevardman.com/get/freelane?ref=github) |
+| **Lovly: Credit Repair** | Lessons, letters that cite the law, deadlines, progress and badges | [Download](https://shop.frantzmichaelsthilairevardman.com/get/lovly?ref=github) |
+| **Reclaim** | Name and privacy defense: evidence log, takedown letters, lock-it-down checklist | [Download](https://shop.frantzmichaelsthilairevardman.com/get/reclaim?ref=github) |
+| **Safe Pocket** | Encrypted pocket for your ID and papers (English, Spanish, Kreyòl) | [Download](https://shop.frantzmichaelsthilairevardman.com/get/safepocket?ref=github) |
+| **Pure Beats** | Make original beats on your phone | [Download](https://shop.frantzmichaelsthilairevardman.com/get/purebeats?ref=github) |
+| **Signal Fire** | Stay in touch with no cell service | [Download](https://shop.frantzmichaelsthilairevardman.com/get/signalfire?ref=github) |
+| **Clear Check** | A plain-English check-up for your business | [Download](https://shop.frantzmichaelsthilairevardman.com/get/clearcheck?ref=github) |
+| **Rex Voice** | On-device voice cloning with spoken consent | [Download](https://shop.frantzmichaelsthilairevardman.com/get/rexvoice?ref=github) |
+| **Lead Hunter** | Homeowner leads for roofing and window reps | [Download](https://shop.frantzmichaelsthilairevardman.com/get/leadhunter?ref=github) |
+
+Own It and Safe to Spend are described below. Each app has its own privacy policy in this repo (the `*_PRIVACY.md` files).
+
+---
 
 ## Own It: the music business app
 

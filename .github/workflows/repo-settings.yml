@@ -1,0 +1,14 @@
+name: Repo descriptions (one-time)
+# Why: sets the public description, website and topics of Frantz's public repos (the session proxy can't change repo settings).
+on: workflow_dispatch
+jobs:
+  set:
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          GH_TOKEN: ${{ secrets.BUILD_TOKEN }}
+        run: |
+          gh api -X PATCH repos/frantzvardman26-max/ownit-app -f description="Free Android apps and games by Frantz Vardman, plus the Free Lane / F-Droid app library. No account, no ads." -f homepage="https://shop.frantzmichaelsthilairevardman.com/" > /dev/null && echo "ownit-app description set" || echo "::warning::ownit-app description not set"
+          gh api -X PUT repos/frantzvardman26-max/ownit-app/topics -f "names[]=android" -f "names[]=android-apps" -f "names[]=fdroid" -f "names[]=free-apps" -f "names[]=privacy" -f "names[]=offline-first" -f "names[]=indie-games" -f "names[]=kotlin" > /dev/null && echo "ownit-app topics set" || echo "::warning::topics not set"
+          gh api -X PATCH repos/frantzvardman26-max/leadhunter-app -f description="Lead Hunter: homeowner leads for roofing and window reps, from public county records and hail reports. Free Android app." -f homepage="https://shop.frantzmichaelsthilairevardman.com/apps/leadhunter" > /dev/null && echo "leadhunter-app description set" || echo "::warning::leadhunter-app description not set"
+          gh api -X PATCH repos/frantzvardman26-max/frantzvardman26-max -f description="Frantz Vardman: Android apps, games, Vindie News and the Frantz Vardman Shop" -f homepage="https://shop.frantzmichaelsthilairevardman.com/" > /dev/null && echo "profile description set" || echo "::warning::profile description not set"
