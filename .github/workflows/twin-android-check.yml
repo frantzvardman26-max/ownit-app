@@ -1,0 +1,17 @@
+name: Twin Android compile check (fast; shows build errors only)
+on: workflow_dispatch
+permissions: {contents: read}
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with: {repository: frantzvardman26-max/3D, token: "${{ secrets.BUILD_TOKEN }}", ref: twin}
+      - uses: actions/setup-java@v5
+        with: {distribution: temurin, java-version: 21}
+      - name: Build every app
+        run: |
+          cd android && chmod +x gradlew
+          INCLUDE_SAFETOSPEND=1 ./gradlew assembleDebug testDebugUnitTest --no-daemon --continue -q > ../build.log 2>&1 && echo "BUILD OK" || echo "BUILD HAD ERRORS"
+          grep -E "^e: |What went wrong|^> |error:|Execution failed|FAILED" ../build.log | grep -vE "Run with|Get more help|--scan" | head -60
+          echo "APKS $(find . -path '*build/outputs/apk/*' -name '*.apk' ! -name '*androidTest*' | wc -l)"
