@@ -26,4 +26,4 @@ Uninstall the app, or clear its storage in your phone's settings.
 Signal Fire doesn't replace emergency services. Messages from other people are unverified.
 
 ## Contact
-Questions: https://shop.frantzmichaelsthilairevardman.com/support/
+Questions: frantzvardman@mail2one.com
