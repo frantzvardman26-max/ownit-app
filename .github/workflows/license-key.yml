@@ -1,0 +1,9 @@
+name: Show the shop's public app-license key
+# Prints the PUBLIC half of the key the apps use to check licenses offline (it can only check, never sign). Safe to show.
+on: workflow_dispatch
+permissions: {contents: read}
+jobs:
+  key:
+    runs-on: ubuntu-latest
+    steps:
+      - run: curl -fsS https://shop.frantzmichaelsthilairevardman.com/api/license-key | jq -r '"X=\(.x)\nY=\(.y)"'
