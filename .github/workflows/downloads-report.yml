@@ -17,10 +17,11 @@ jobs:
           q() { npx -y wrangler@3 d1 execute shop-downloads --remote --json --command "$1" 2>/dev/null | jq '.[0].results // []' || echo '[]'; }
           S="datetime('now','-30 days')"
           D=$(q "SELECT id, at, event, product, country, region, substr(user_agent,1,160) ua, ip, CASE WHEN email IS NOT NULL AND email != '' THEN 1 ELSE 0 END has_email FROM downloads WHERE at > strftime('%Y-%m-%dT%H:%M:%S', 'now', '-30 days') ORDER BY at")
+          AD=$(q "SELECT a.id, a.at, a.app, a.country, a.ref, d.region, d.device, d.tester, x.account FROM app_downloads a LEFT JOIN download_detail d ON d.id = a.id LEFT JOIN download_accounts x ON x.download = a.id WHERE a.at > strftime('%Y-%m-%dT%H:%M:%S', 'now', '-30 days') ORDER BY a.at")
           A=$(q "SELECT id, created, verified, country FROM accounts ORDER BY created")
           C=$(q "SELECT COUNT(*) n, COALESCE(NULLIF(region,''),country) place FROM clicks GROUP BY place ORDER BY n DESC")
-          jq -n --argjson d "$D" --argjson a "$A" --argjson c "$C" '{made: now|todate, downloads: $d, accounts: $a, clicks_by_place: $c}' > r.json
-          echo "rows: downloads $(echo "$D" | jq length), accounts $(echo "$A" | jq length)"
+          jq -n --argjson d "$D" --argjson ad "$AD" --argjson a "$A" --argjson c "$C" '{made: now|todate, paid_or_file_downloads: $d, app_downloads: $ad, accounts: $a, clicks_by_place: $c}' > r.json
+          echo "rows: files $(echo "$D" | jq length), apps $(echo "$AD" | jq length), accounts $(echo "$A" | jq length)"
           F="reports/downloads-$(date -u +%F).json"
-          SHA=$(gh api "repos/frantzvardman26-max/3D/contents/$F" -q .sha 2>/dev/null || true)
-          gh api -X PUT "repos/frantzvardman26-max/3D/contents/$F" -f message="Downloads report (private)" -f content="$(base64 -w0 r.json)" ${SHA:+-f sha=$SHA} > /dev/null && echo saved
+          SHA=$(gh api "repos/frantzvardman26-max/3D/contents/$F" -q .sha 2>/dev/null | grep -E '^[0-9a-f]{40}$' || true)
+          gh api -X PUT "repos/frantzvardman26-max/3D/contents/$F" -f message="Downloads report (private)" -f content="$(base64 -w0 r.json)" ${SHA:+-f sha=$SHA} > /dev/null 2>err.txt && echo saved || { echo "save failed: $(head -c 200 err.txt | tr -dc "A-Za-z0-9 :._-")"; exit 1; }
