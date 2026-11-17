@@ -21,4 +21,4 @@ Uninstall the game, or clear its storage in your phone's settings.
 Bombs & Bullion collects no personal information from anyone, including children.
 
 ## Contact
-Questions: frantzvardman@mail2one.com
+Questions: https://shop.frantzmichaelsthilairevardman.com/support/
