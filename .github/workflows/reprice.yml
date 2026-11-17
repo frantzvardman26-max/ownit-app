@@ -1,0 +1,38 @@
+name: Reprice (new Stripe prices + payment links from the private plan)
+# Reads shop/tools/reprice-plan.json from the private repo, turns on a one-time token for the shop's /api/reprice, redeploys, runs the plan
+# in chunks, saves the results to the private repo, then removes the token and redeploys. Public log shows counts only.
+on: workflow_dispatch
+permissions: {contents: read, actions: write}
+jobs:
+  reprice:
+    runs-on: ubuntu-latest
+    env:
+      CF: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      ACC: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      GH_TOKEN: ${{ secrets.BUILD_TOKEN }}
+      R: frantzvardman26-max/ownit-app
+    steps:
+      - name: Run
+        run: |
+          set -e
+          api() { curl -sS -H "Authorization: Bearer $CF" -H 'Content-Type: application/json' "$@"; }
+          B=https://api.cloudflare.com/client/v4/accounts/$ACC/pages/projects/frantz-vardman-shop
+          deploy() { gh api -X POST repos/$R/actions/workflows/shop-verify.yml/dispatches -f ref=main; sleep 20
+            id=$(gh api "repos/$R/actions/workflows/shop-verify.yml/runs?per_page=1" -q '.workflow_runs[0].id'); gh run watch $id -R $R --exit-status > /dev/null; echo "deployed $id"; }
+          gh api repos/frantzvardman26-max/3D/contents/shop/tools/reprice-plan.json -q .content | base64 -d > plan.json
+          echo "items: $(jq length plan.json)"
+          TOK=$(openssl rand -hex 24); echo "::add-mask::$TOK"
+          api -X PATCH $B -d "$(jq -n --arg t "$TOK" '{deployment_configs:{production:{env_vars:{REPRICE_TOKEN:{type:"secret_text",value:$t}}}}}')" | jq -r '"token set: \(.success)"'
+          deploy
+          echo '[]' > out.json; n=$(jq length plan.json)
+          for ((i=0; i<n; i+=8)); do
+            for try in 1 2 3; do
+              r=$(curl -sS -X POST https://shop.frantzmichaelsthilairevardman.com/api/reprice -H "X-Reprice-Token: $TOK" -H 'Content-Type: application/json' \
+                  -d "$(jq -c --argjson i $i '{items: .[$i:$i+8]}' plan.json)") && echo "$r" | jq -e 'type=="array"' >/dev/null && break; sleep 10; done
+            echo "$r" | jq -e 'type=="array"' >/dev/null || r='[]'
+            jq -s '.[0] + .[1]' out.json <(echo "$r") > o2.json && mv o2.json out.json
+            echo "chunk $i: ok $(echo "$r" | jq '[.[]|select(.link_id)]|length') failed $(echo "$r" | jq '[.[]|select(.error)]|length')"
+          done
+          SHA=$(gh api repos/frantzvardman26-max/3D/contents/shop/tools/reprice-result.json -q .sha 2>/dev/null | grep -E '^[0-9a-f]{40}$' || true)
+          gh api -X PUT repos/frantzvardman26-max/3D/contents/shop/tools/reprice-result.json -f message="Reprice results (private)" -f content="$(base64 -w0 out.json)" ${SHA:+-f sha=$SHA} > /dev/null && echo saved
+          api -X PATCH $B -d '{"deployment_configs":{"production":{"env_vars":{"REPRICE_TOKEN":null}}}}' | jq -r '"token removed: \(.success)"'
