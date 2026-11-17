@@ -28,24 +28,25 @@ jobs:
             ~/.gradle/caches
           key: gradle-gg-${{ hashFiles('android/gradle/wrapper/gradle-wrapper.properties', 'android/gradle/libs.versions.toml', 'android/giants/build.gradle.kts') }}
           restore-keys: gradle-
-      - name: Build Giants & Guns (beta)
+      - name: Build Giants & Guns (Free + Gold)
         working-directory: android
         run: |
           sed -i '/aapt2FromMavenOverride/d' gradle.properties || true
           chmod +x gradlew
           for try in 1 2 3 4; do
-            if ./gradlew :giants:assembleDebug --no-daemon; then break; fi
+            if ./gradlew :giants:assembleFreeDebug :giants:assembleGoldDebug --no-daemon; then break; fi
             if [ $try = 4 ]; then exit 1; fi
             echo "Build attempt $try failed, waiting and trying again..."
             sleep 45
           done
-          cp giants/build/outputs/apk/debug/giants-debug.apk ../GiantsAndGuns.apk
-          ls -la ../GiantsAndGuns.apk
+          cp giants/build/outputs/apk/free/debug/giants-free-debug.apk ../GiantsAndGuns.apk
+          cp giants/build/outputs/apk/gold/debug/giants-gold-debug.apk ../GiantsGold.apk
+          ls -la ../GiantsAndGuns.apk ../GiantsGold.apk
       - name: Tests (screens on a simulated phone)
         working-directory: android
         run: |
           chmod +x gradlew
-          ./gradlew :giants:testDebugUnitTest --no-daemon
+          ./gradlew :giants:testFreeDebugUnitTest --no-daemon
       - name: Share screen-test screenshots for review (branch gg-screens)
         if: always()
         run: |
@@ -59,8 +60,10 @@ jobs:
         run: |
           # Why: the privacy policy promises no internet access; this fails the build if that promise is ever broken.
           BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
-          PERMS=$("$BT/aapt2" dump permissions GiantsAndGuns.apk); echo "$PERMS"
-          if echo "$PERMS" | grep -q "android.permission.INTERNET"; then echo "::error::INTERNET permission found. Giants & Guns promises no internet access."; exit 1; fi
+          for A in GiantsAndGuns.apk GiantsGold.apk; do
+            PERMS=$("$BT/aapt2" dump permissions $A); echo "$A: $PERMS"
+            if echo "$PERMS" | grep -q "android.permission.INTERNET"; then echo "::error::INTERNET permission found in $A. Giants & Guns promises no internet access."; exit 1; fi
+          done
           echo "OK: no internet permission"
       - name: Publish the privacy policy page (public, on frantzvardman26-max/ownit-app)
         env:
@@ -82,8 +85,21 @@ jobs:
           REPO=frantzvardman26-max/ownit-app
           gh release delete giants -R "$REPO" -y --cleanup-tag || true
           gh release create giants GiantsAndGuns.apk -R "$REPO" --latest=false \
-            --title "Giants & Guns (Beta)" --notes "BETA: free to test, not for sale yet. A side-view shooter: 30 rooms, 3 giants, power-ups. Offline, no ads. Build $APP_BUILD_NUMBER." \
+            --title "Giants & Guns" --notes "Giants & Guns v1.0: a free side-view shooter. Endless rooms, 4 giants, power-ups, guns and upgrades. Offline, no tracking. Build $APP_BUILD_NUMBER." \
             && echo "Public download: https://github.com/$REPO/releases/download/giants/GiantsAndGuns.apk" || echo "::warning::Couldn't publish the public download"
+      - name: Deliver the Gold Edition to the shop (private repo only; never published here)
+        env:
+          GH_TOKEN: ${{ secrets.BUILD_TOKEN }}
+        run: |
+          # Why: Gold is the paid edition. It goes only into the private shop repo, where it's handed out after a confirmed purchase.
+          if [ -z "$GH_TOKEN" ]; then echo "No token"; exit 0; fi
+          REPO=frantzvardman26-max/3D; F=shop/products/GiantsGold.apk
+          SHA=$(gh api "repos/$REPO/contents/$F" --jq .sha 2>/dev/null || true); echo "$SHA" | grep -Eq '^[0-9a-f]{40}$' || SHA=""
+          base64 -w0 GiantsGold.apk > gold.b64
+          jq -n --rawfile c gold.b64 --arg sha "$SHA" --arg m "Giants & Guns Gold build $APP_BUILD_NUMBER" '{message:$m,content:$c} + (if $sha=="" then {} else {sha:$sha} end)' > body.json
+          gh api -X PUT "repos/$REPO/contents/$F" --input body.json > /dev/null && echo "Gold delivered to the shop" || { echo "::error::Couldn't deliver Gold"; exit 1; }
+          rm -f gold.b64 body.json GiantsGold.apk
+          gh workflow run shop-verify.yml -R "$GITHUB_REPOSITORY" || echo "::warning::Couldn't redeploy the shop"
       - name: Refresh the F-Droid library so phones see this update
         if: success()
         env:
