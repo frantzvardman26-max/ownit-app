@@ -1,0 +1,26 @@
+name: Downloads report (saved privately)
+# Pulls the last 30 days of downloads, sign-ups and taps from the shop database and saves them to the PRIVATE repo.
+# This repo is public: the log shows only counts, never rows.
+on: workflow_dispatch
+permissions: {contents: read}
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      GH_TOKEN: ${{ secrets.BUILD_TOKEN }}
+    steps:
+      - name: Query and save
+        run: |
+          set -e
+          q() { npx -y wrangler@3 d1 execute shop-downloads --remote --json --command "$1" 2>/dev/null | jq '.[0].results // []' || echo '[]'; }
+          S="datetime('now','-30 days')"
+          D=$(q "SELECT id, at, event, product, country, region, substr(user_agent,1,160) ua, ip, CASE WHEN email IS NOT NULL AND email != '' THEN 1 ELSE 0 END has_email FROM downloads WHERE at > strftime('%Y-%m-%dT%H:%M:%S', 'now', '-30 days') ORDER BY at")
+          A=$(q "SELECT id, created, verified, country FROM accounts ORDER BY created")
+          C=$(q "SELECT COUNT(*) n, COALESCE(NULLIF(region,''),country) place FROM clicks GROUP BY place ORDER BY n DESC")
+          jq -n --argjson d "$D" --argjson a "$A" --argjson c "$C" '{made: now|todate, downloads: $d, accounts: $a, clicks_by_place: $c}' > r.json
+          echo "rows: downloads $(echo "$D" | jq length), accounts $(echo "$A" | jq length)"
+          F="reports/downloads-$(date -u +%F).json"
+          SHA=$(gh api "repos/frantzvardman26-max/3D/contents/$F" -q .sha 2>/dev/null || true)
+          gh api -X PUT "repos/frantzvardman26-max/3D/contents/$F" -f message="Downloads report (private)" -f content="$(base64 -w0 r.json)" ${SHA:+-f sha=$SHA} > /dev/null && echo saved
