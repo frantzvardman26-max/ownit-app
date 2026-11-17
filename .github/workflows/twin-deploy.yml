@@ -1,0 +1,28 @@
+name: Twin deploy (build the practice copy from the twin branch, then test it)
+on: workflow_dispatch
+permissions: {contents: read, actions: write}
+concurrency: {group: twin, cancel-in-progress: false}
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      GH_TOKEN: ${{ secrets.BUILD_TOKEN }}
+    steps:
+      - uses: actions/checkout@v5
+        with: {repository: frantzvardman26-max/3D, token: "${{ secrets.BUILD_TOKEN }}", ref: twin, fetch-depth: 0}
+      - name: Bring in anything new from the live branch (so the twin is never behind)
+        run: |
+          git -c user.name="Twin" -c user.email="twin@users.noreply.github.com" merge --no-edit origin/main || { echo "::error::twin and live changed the same lines; fix the twin branch"; exit 1; }
+          git push origin HEAD:twin
+      - name: Build (practice mode)
+        run: |
+          pip install --quiet pillow pypdf && (fc-list | grep -q DejaVuSerif-Bold || sudo apt-get install -y -qq fonts-dejavu-core) && (which ffmpeg || (sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg))
+          python3 shop/tools/twin_patch.py config
+          python3 shop/tools/build_templates.py && python3 shop/tools/build_site.py
+          python3 shop/tools/twin_patch.py dist
+      - name: Publish the twin
+        run: cd shop/dist && npx --yes wrangler@3 pages deploy . --project-name frantz-twin --branch main --commit-dirty=true | tail -3
+      - name: Start the test robot
+        run: gh api -X POST repos/frantzvardman26-max/ownit-app/actions/workflows/twin-test.yml/dispatches -f ref=main

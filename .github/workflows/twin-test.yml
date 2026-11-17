@@ -1,0 +1,74 @@
+name: Twin test (the robot checks the practice copy; results go to Twin Digital)
+on: workflow_dispatch
+permissions: {contents: read}
+concurrency: {group: twin-test, cancel-in-progress: true}
+env:
+  TWIN_URL: https://frantz-twin.pages.dev
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v5
+        with: {repository: frantzvardman26-max/3D, token: "${{ secrets.BUILD_TOKEN }}", ref: twin, sparse-checkout: shop/tools/twin}
+      - name: Robot (pages, accounts, gates, checkout, forms, panel, games)
+        run: |
+          K=$(npx --yes wrangler@3 d1 execute shop-downloads --remote --json --command "SELECT value FROM owner_secrets WHERE name='twin_key'" 2>/dev/null | jq -r '.[0].results[0].value'); echo "::add-mask::$K"; echo "TWIN_KEY=$K" >> $GITHUB_ENV
+          cd shop/tools/twin && npm init -y >/dev/null && npm i --silent playwright@1.56.1 && npx playwright install --with-deps chromium >/dev/null
+          RUN_ID=${{ github.run_id }} TWIN_KEY=$K node robot.js | grep -E "^(PASS|FAIL)|passed" || true
+      - uses: actions/upload-artifact@v4
+        with: {name: web, path: shop/tools/twin/out}
+  apps:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v5
+        with: {repository: frantzvardman26-max/3D, token: "${{ secrets.BUILD_TOKEN }}", ref: twin}
+      - uses: actions/setup-java@v5
+        with: {distribution: temurin, java-version: 21}
+      - name: Build every app (debug)
+        run: |
+          cd android && chmod +x gradlew && INCLUDE_SAFETOSPEND=1 ./gradlew assembleDebug --no-daemon --continue -q || echo "::warning::some apps failed to build"
+          mkdir -p $RUNNER_TEMP/apks && find . -path '*build/outputs/apk/*' -name '*.apk' ! -name '*androidTest*' -exec cp {} $RUNNER_TEMP/apks/ \;
+          ls $RUNNER_TEMP/apks | wc -l
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
+      - run: pip install --quiet pillow
+      - name: Open every app on an emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
+          script: python3 shop/tools/twin/apps.py $RUNNER_TEMP/apks out
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: {name: apps, path: out}
+  report:
+    needs: [web, apps]
+    if: always()
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      GH_TOKEN: ${{ secrets.BUILD_TOKEN }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with: {path: res}
+      - name: Send results to Twin Digital
+        run: |
+          K=$(npx --yes wrangler@3 d1 execute shop-downloads --remote --json --command "SELECT value FROM owner_secrets WHERE name='twin_key'" 2>/dev/null | jq -r '.[0].results[0].value'); echo "::add-mask::$K"
+          SHA=$(gh api repos/frantzvardman26-max/3D/git/ref/heads/twin -q .object.sha)
+          W='{"checks":[]}'; [ -f res/web/results.json ] && W=$(cat res/web/results.json) || W='{"checks":[{"grp":"Robot","name":"Web robot ran","ok":false,"detail":"no results"}]}'
+          A='{"checks":[]}'; [ -f res/apps/apps.json ] && A=$(cat res/apps/apps.json) || A='{"checks":[{"grp":"Apps","name":"App check ran","ok":false,"detail":"no results (build or emulator failed)"}]}'
+          jq -n --arg id "${{ github.run_id }}" --arg sha "$SHA" --argjson w "$W" --argjson a "$A" '{action:"run", id:$id, sha:$sha, branch:"twin", checks:($w.checks + $a.checks), note:"robot run"}' > run.json
+          curl -sS -X POST $TWIN_URL/api/twin -H "Authorization: Bearer $K" -H 'Content-Type: application/json' --data @run.json | jq -r '"recorded: \(.passed) passed, \(.failed) failed"'
+          for f in res/web/shots/*.jpg res/apps/shots/*.jpg; do [ -f "$f" ] || continue
+            jq -n --arg run "${{ github.run_id }}" --arg n "$(basename "$f" .jpg)" --arg img "data:image/jpeg;base64,$(base64 -w0 "$f")" '{action:"shot", run:$run, name:$n, img:$img}' > s.json
+            curl -sS -X POST $TWIN_URL/api/twin -H "Authorization: Bearer $K" -H 'Content-Type: application/json' --data @s.json > /dev/null; done; echo "screenshots sent"
