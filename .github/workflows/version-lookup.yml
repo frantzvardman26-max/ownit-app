@@ -1,0 +1,13 @@
+name: Version lookup (latest Android build tools, public info)
+on: workflow_dispatch
+jobs:
+  look:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          m() { curl -sS "$1" | grep -oE "<version>[^<]*</version>" | sed 's/<[^>]*>//g' | grep -vE "alpha|beta|rc|dev|-M[0-9]|RC|Beta|eap" | sort -V | tail -1; }
+          echo "AGP $(m https://dl.google.com/dl/android/maven2/com/android/tools/build/gradle/maven-metadata.xml)"
+          echo "KOTLIN $(m https://repo1.maven.org/maven2/org/jetbrains/kotlin/kotlin-gradle-plugin/maven-metadata.xml)"
+          echo "GRADLE $(curl -sS https://services.gradle.org/versions/current | jq -r .version)"
+          for a in androidx/activity/activity androidx/appcompat/appcompat androidx/core/core-ktx androidx/constraintlayout/constraintlayout androidx/datastore/datastore-preferences com/google/android/material/material androidx/test/espresso/espresso-core androidx/test/ext/junit androidx/compose/compose-bom androidx/room/room-runtime androidx/lifecycle/lifecycle-runtime-ktx androidx/navigation/navigation-compose androidx/work/work-runtime-ktx androidx/webkit/webkit; do
+            echo "LIB $a $(m https://dl.google.com/dl/android/maven2/$a/maven-metadata.xml)"; done
