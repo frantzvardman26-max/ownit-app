@@ -35,13 +35,13 @@ jobs:
           mkdir -p lib && cd lib
           git init -q && git remote add o https://github.com/${{ github.repository }} && git fetch -q --depth 1 o fdroid && git checkout -q FETCH_HEAD -- repo || true
           n=0; for f in repo/*.apk; do [ -f "$f" ] || continue
-            npx --yes wrangler@3 r2 object put "fv-app-vault/repo/$(basename "$f")" --file "$f" --content-type application/vnd.android.package-archive --remote >/dev/null && n=$((n+1)); done
+            npx --yes wrangler@3 r2 object put "fv-app-vault/repo/$(basename "$f")" --file "$f" --content-type application/vnd.android.package-archive --remote 2>&1 | tail -3 && n=$((n+1)); done
           echo "library files in the vault: $n"
       - name: Copy each app's download file
         run: |
           mkdir -p apps
           python3 -c "import re;t=open('shop/site/functions/api/_apps.js').read();[print(i,u) for i,u in re.findall(r\"\\{ id: '([a-z0-9]+)'.*?file: '([^']+)'\",t,re.S)]" > apps.txt; cat apps.txt | cut -d' ' -f1 | tr '\n' ' '
           n=0; while read -r id url; do
-            if curl -fsSL "$url" -o "apps/$id.apk"; then npx --yes wrangler@3 r2 object put "fv-app-vault/apps/$id.apk" --file "apps/$id.apk" --content-type application/vnd.android.package-archive --remote >/dev/null && n=$((n+1)); else echo "::warning::no file yet for $id"; fi
+            if curl -fsSL "$url" -o "apps/$id.apk"; then npx --yes wrangler@3 r2 object put "fv-app-vault/apps/$id.apk" --file "apps/$id.apk" --content-type application/vnd.android.package-archive --remote 2>&1 | tail -3 && n=$((n+1)); else echo "::warning::no file yet for $id"; fi
           done < apps.txt
           echo "app files in the vault: $n of $(wc -l < apps.txt)"
