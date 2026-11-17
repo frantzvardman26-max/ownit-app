@@ -1,4 +1,4 @@
-name: Build Giants & Guns (beta)
+name: Build Giants & Guns
 on:
   workflow_dispatch:
 # Built here, in the public download repo, because GitHub Actions is free for public repositories.
