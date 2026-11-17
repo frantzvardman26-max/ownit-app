@@ -23,6 +23,6 @@ jobs:
           python3 shop/tools/build_templates.py && python3 shop/tools/build_site.py
           python3 shop/tools/twin_patch.py dist
       - name: Publish the twin
-        run: cd shop/dist && npx --yes wrangler@3 pages deploy . --project-name frantz-twin --branch main --commit-dirty=true | tail -3
+        run: cd shop/dist && (bash ../tools/connect_app_vault.sh frantz-twin || echo '::warning::App vault not connected to the twin') && npx --yes wrangler@3 pages deploy . --project-name frantz-twin --branch main --commit-dirty=true | tail -3
       - name: Start the test robot
         run: gh api -X POST repos/frantzvardman26-max/ownit-app/actions/workflows/twin-test.yml/dispatches -f ref=main

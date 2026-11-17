@@ -58,6 +58,7 @@ jobs:
           cd shop/dist
           npx --yes wrangler@3 pages project list | grep -q frantz-vardman-shop || npx --yes wrangler@3 pages project create frantz-vardman-shop --production-branch main
           bash ../tools/connect_download_log.sh || echo "::warning::Download log not connected (see step output). Downloads still work."
+          bash ../tools/connect_app_vault.sh frantz-vardman-shop || echo "::warning::App vault not connected (see step output). Downloads fall back to the public copies."
           npx --yes wrangler@3 pages deploy . --project-name frantz-vardman-shop --branch main --commit-dirty=true
       - name: Tell search engines about new pages (IndexNow, no account)
         if: success()
