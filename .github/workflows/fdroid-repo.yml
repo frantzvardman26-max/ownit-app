@@ -192,7 +192,8 @@ jobs:
           if [ -z "$GH_TOKEN" ]; then echo "No publish token"; exit 0; fi
           # App files go to the private app vault (repo/<file>); the public branch keeps only the catalog, icons and screenshots.
           n=0; for f in fd/repo/*.apk; do [ -f "$f" ] || continue; npx --yes wrangler@4 r2 object put "fv-app-vault/repo/$(basename "$f")" --file "$f" --remote >/dev/null 2>&1 && n=$((n+1)) || { echo "::error::Couldn't save $(basename "$f") to the private vault"; exit 1; }; done; echo "library files saved privately: $n"
-          T=$(mktemp -d); cp -r fd/repo "$T/repo"; rm -f "$T"/repo/*.apk "$T"/repo/*.apk.asc "$T"/repo/*.idsig
+          T=$(mktemp -d); cp -r fd/repo "$T/repo"; find "$T/repo" -maxdepth 1 \( -name '*.apk' -o -name '*.apk.asc' -o -name '*.idsig' \) ! -name 'FreeLane.apk*' -delete
+          # Free Lane itself stays public: it's the front door (older Free Lane apps update to the signed-in version from here); every other app needs a sign-in.
           cat > "$T/README.md" <<EOF
           # Frantz Vardman Apps (F-Droid library)
           
