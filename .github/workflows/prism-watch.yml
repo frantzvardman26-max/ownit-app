@@ -1,22 +1,30 @@
-name: Prism watch (tests the live game every hour)
+name: Prism watch (tests every live game every hour)
 on:
   schedule: [{cron: '17 * * * *'}]
   workflow_dispatch:
-# Every hour Prism plays the live village and one cave (a different cave each hour) through its 3 bands with brand-new chaos seeds, so over a day it
-# tries thousands of tap patterns nobody has tried. Game server calls are faked, so it never posts scores or touches real data.
+# Every hour Prism plays every live game at once (Cave Hunt: the village + a different cave each hour; Giants & Guns, Bombs & Bullion upright,
+# Monkey Money) through its 3 bands with brand-new chaos seeds, so over a day it tries thousands of tap patterns nobody has tried. Game server calls are faked, so it never posts scores or touches real data.
 # A hot spot fails this run (GitHub emails the owner). Details are encrypted: this repo is public.
 permissions: {contents: read}
 jobs:
   prism:
     runs-on: ubuntu-24.04   # Playwright's browser dependencies install on 24.04
     timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {game: cave, path: /cave/, portrait: ''}
+          - {game: giants, path: /giants/, portrait: ''}
+          - {game: bombs, path: /play/, portrait: '1'}
+          - {game: monkey, path: /monkey/, portrait: ''}
     steps:
       - uses: actions/checkout@v5
         with: {repository: frantzvardman26-max/3D, token: "${{ secrets.BUILD_TOKEN }}", sparse-checkout: shop/tools/twin}
       - name: Prism on the live game
         run: |
           cd shop/tools/twin && npm init -y >/dev/null && npm i --silent playwright@1.56.1 && npx playwright install --with-deps chromium >/dev/null
-          PRISM_SEED=$(date -u +%Y%m%d%H) PRISM_QUICK=1 PRISM_ONLY=$(date -u +%H) PRISM_CHAOS=3 PRISM_STYLES=perfect,wrong,hint node prism.js https://shop.frantzmichaelsthilairevardman.com out > summary.txt 2>&1; code=$?
+          PRISM_PATH=${{ matrix.path }} PRISM_PORTRAIT=${{ matrix.portrait }} PRISM_SEED=$(date -u +%Y%m%d%H) PRISM_QUICK=1 PRISM_ONLY=$(date -u +%H) PRISM_CHAOS=3 PRISM_STYLES=perfect,wrong,hint node prism.js https://shop.frantzmichaelsthilairevardman.com out > summary.txt 2>&1; code=$?
           head -1 summary.txt; echo "result=$code" >> $GITHUB_ENV
       - name: Encrypt the details
         if: always()
@@ -24,6 +32,6 @@ jobs:
         run: mkdir -p shop/tools/twin/out && touch shop/tools/twin/summary.txt && tar -C shop/tools/twin -cz out summary.txt | openssl enc -aes-256-cbc -pbkdf2 -salt -pass env:AK -out prism.enc
       - uses: actions/upload-artifact@v4
         if: always()
-        with: {name: prism, path: prism.enc, retention-days: 7}
+        with: {name: 'prism-${{ matrix.game }}', path: prism.enc, retention-days: 7}
       - name: Hot spot? fail so the owner hears about it
-        run: '[ "$result" = "0" ] || { echo "::error::Prism found a hot spot on the live game. Replay seeds are in the encrypted details."; exit 1; }'
+        run: '[ "$result" = "0" ] || { echo "::error::Prism found a hot spot on ${{ matrix.game }}. Replay seeds are in the encrypted details."; exit 1; }'
