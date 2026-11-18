@@ -36,7 +36,7 @@ jobs:
             gh api -X POST "repos/$OWNER/$OWNER.github.io/pages" -f 'source[branch]=main' -f 'source[path]=/' >/dev/null && echo "pages on" || echo "pages already on"
       - name: Profile website field (needs the token's user scope; skipped if missing)
         run: |
-          gh api -X PATCH user -f name="Frantz Vardman" -f blog="https://shop.frantzmichaelsthilairevardman.com/about" -f bio="Android apps, Free Lane app store, AceThe_Kid beats" >/dev/null && echo "profile updated" || echo "no user scope, profile fields unchanged"
+          gh api -X PATCH user -f name="Frantz Vardman" -f blog="https://shop.frantzmichaelsthilairevardman.com/about" -f bio="Private Android apps & games · Free Lane app store · Asset protection · AceThe_Kid beats" >/dev/null && echo "profile updated" || echo "no user scope, profile fields unchanged"
       - name: Tell search engines
         run: |
           sleep 60

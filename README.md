@@ -1,32 +1,26 @@
-# Free Android apps and games by Frantz Vardman
+<div align="center">
 
-Every app is free, with no account and no ads, and most work offline. Install them one by one below, or get them all (with automatic updates) through **[Free Lane](https://shop.frantzmichaelsthilairevardman.com/apps/freelane)**, a free app store, or by adding this library to F-Droid.
+<picture><source media="(prefers-color-scheme: light)" srcset="profile/readme/img/banner-light.svg"><img src="profile/readme/img/banner-dark.svg" alt="Frantz Vardman" width="100%"></picture>
 
-📰 New releases first: **[Vindie News](https://shop.frantzmichaelsthilairevardman.com/news/)** · 🛍 **[Frantz Vardman Shop](https://shop.frantzmichaelsthilairevardman.com/)**
+# Android apps and games by Frantz Vardman
 
-## Games
+**Free with one account.** Sign in once at the shop and every app, update and purchase follows you. Private by default: no trackers, no ads from strangers.<br>
+Try the games in your browser first, no sign-up: **[Giants & Guns](https://shop.frantzmichaelsthilairevardman.com/giants/)** · **[Bombs & Bullion](https://shop.frantzmichaelsthilairevardman.com/play/)**
 
-| Game | | |
-|---|---|---|
-| **Giants & Guns** | Side-view shooter: endless rooms, giants, power-ups and guns | [Download](https://shop.frantzmichaelsthilairevardman.com/get/giants?ref=github) · [Play in browser](https://shop.frantzmichaelsthilairevardman.com/giants/) · [Gold Edition](https://shop.frantzmichaelsthilairevardman.com/p/giants-gold) |
-| **Bombs & Bullion** | One-thumb arcade game with 10 animal superheroes and a driving mode | [Download](https://shop.frantzmichaelsthilairevardman.com/get/crownrush?ref=github) · [Play in browser](https://shop.frantzmichaelsthilairevardman.com/play/) |
+</div>
 
-## Apps
+<table>
+<tr><td align="center" width="25%"><a href="https://shop.frantzmichaelsthilairevardman.com/get/freelane?ref=github"><img src="profile/readme/img/icons/freelane.png" width="64" alt="Free Lane"></a><br><b>Free Lane</b><br><sub>My own app store: one-tap installs and automatic updates</sub><br><a href="https://shop.frantzmichaelsthilairevardman.com/get/freelane?ref=github">Get it</a></td><td align="center" width="25%"><a href="https://shop.frantzmichaelsthilairevardman.com/get/ownit?ref=github"><img src="profile/readme/img/icons/ownit.png" width="64" alt="Own It"></a><br><b>Own It</b><br><sub>Contracts, royalties and shows for independent artists</sub><br><a href="https://shop.frantzmichaelsthilairevardman.com/get/ownit?ref=github">Get it</a></td><td align="center" width="25%"><a href="https://shop.frantzmichaelsthilairevardman.com/get/lovly?ref=github"><img src="profile/readme/img/icons/lovly.png" width="64" alt="Lovly"></a><br><b>Lovly</b><br><sub>Credit repair you do yourself, letters that cite the law</sub><br><a href="https://shop.frantzmichaelsthilairevardman.com/get/lovly?ref=github">Get it</a></td><td align="center" width="25%"><a href="https://shop.frantzmichaelsthilairevardman.com/get/reclaim?ref=github"><img src="profile/readme/img/icons/reclaim.png" width="64" alt="Reclaim"></a><br><b>Reclaim</b><br><sub>Name and privacy defense: evidence, takedowns, help</sub><br><a href="https://shop.frantzmichaelsthilairevardman.com/get/reclaim?ref=github">Get it</a></td></tr>
+<tr><td align="center" width="25%"><a href="https://shop.frantzmichaelsthilairevardman.com/get/safetospend?ref=github"><img src="profile/readme/img/icons/safetospend.png" width="64" alt="Safe to Spend"></a><br><b>Safe to Spend</b><br><sub>What&#x27;s safe to spend until payday, offline</sub><br><a href="https://shop.frantzmichaelsthilairevardman.com/get/safetospend?ref=github">Get it</a></td><td align="center" width="25%"><a href="https://shop.frantzmichaelsthilairevardman.com/get/safepocket?ref=github"><img src="profile/readme/img/icons/safepocket.png" width="64" alt="Safe Pocket"></a><br><b>Safe Pocket</b><br><sub>Encrypted pocket for your ID and papers (EN/ES/HT)</sub><br><a href="https://shop.frantzmichaelsthilairevardman.com/get/safepocket?ref=github">Get it</a></td><td align="center" width="25%"><a href="https://shop.frantzmichaelsthilairevardman.com/get/signalfire?ref=github"><img src="profile/readme/img/icons/signalfire.png" width="64" alt="Signal Fire"></a><br><b>Signal Fire</b><br><sub>Chat and help nearby with no cell service</sub><br><a href="https://shop.frantzmichaelsthilairevardman.com/get/signalfire?ref=github">Get it</a></td><td align="center" width="25%"><a href="https://shop.frantzmichaelsthilairevardman.com/get/clearcheck?ref=github"><img src="profile/readme/img/icons/clearcheck.png" width="64" alt="Clear Check"></a><br><b>Clear Check</b><br><sub>A plain-English check-up for your business</sub><br><a href="https://shop.frantzmichaelsthilairevardman.com/get/clearcheck?ref=github">Get it</a></td></tr>
+<tr><td align="center" width="25%"><a href="https://shop.frantzmichaelsthilairevardman.com/get/purebeats?ref=github"><img src="profile/readme/img/icons/purebeats.png" width="64" alt="Pure Beats"></a><br><b>Pure Beats</b><br><sub>100% original beats on your phone, with stems</sub><br><a href="https://shop.frantzmichaelsthilairevardman.com/get/purebeats?ref=github">Get it</a></td><td align="center" width="25%"><a href="https://shop.frantzmichaelsthilairevardman.com/get/rexvoice?ref=github"><img src="profile/readme/img/icons/rexvoice.png" width="64" alt="Rex Voice"></a><br><b>Rex Voice</b><br><sub>On-device voice cloning with spoken consent</sub><br><a href="https://shop.frantzmichaelsthilairevardman.com/get/rexvoice?ref=github">Get it</a></td><td align="center" width="25%"><a href="https://shop.frantzmichaelsthilairevardman.com/get/leadhunter?ref=github"><img src="profile/readme/img/icons/leadhunter.png" width="64" alt="Lead Hunter"></a><br><b>Lead Hunter</b><br><sub>Homeowner leads for roofing and window reps</sub><br><a href="https://shop.frantzmichaelsthilairevardman.com/get/leadhunter?ref=github">Get it</a></td><td align="center" width="25%"><a href="https://shop.frantzmichaelsthilairevardman.com/get/vindienews?ref=github"><img src="profile/readme/img/icons/vindienews.png" width="64" alt="Vindie News"></a><br><b>Vindie News</b><br><sub>Every new app, game and drop, as an app</sub><br><a href="https://shop.frantzmichaelsthilairevardman.com/get/vindienews?ref=github">Get it</a></td></tr>
+<tr><td align="center" width="25%"><a href="https://shop.frantzmichaelsthilairevardman.com/get/crownrush?ref=github"><img src="profile/readme/img/icons/crownrush.png" width="64" alt="Bombs &amp; Bullion"></a><br><b>Bombs &amp; Bullion</b><br><sub>Arcade game: catch the gold, dodge the bombs</sub><br><a href="https://shop.frantzmichaelsthilairevardman.com/get/crownrush?ref=github">Get it</a> · <a href="https://shop.frantzmichaelsthilairevardman.com/play/">Play</a></td><td align="center" width="25%"><a href="https://shop.frantzmichaelsthilairevardman.com/get/giants?ref=github"><img src="profile/readme/img/icons/giants.png" width="64" alt="Giants &amp; Guns"></a><br><b>Giants &amp; Guns</b><br><sub>Side-view shooter: climb the beanstalk, beat the giants</sub><br><a href="https://shop.frantzmichaelsthilairevardman.com/get/giants?ref=github">Get it</a> · <a href="https://shop.frantzmichaelsthilairevardman.com/giants/">Play</a></td></tr>
+</table>
 
-| App | What it does | |
-|---|---|---|
-| **Vindie News** | Every new app, game, tool and deal | [Download](https://shop.frantzmichaelsthilairevardman.com/get/vindienews?ref=github) |
-| **Free Lane** | A free app store: one-tap installs, automatic updates, fingerprint-checked downloads | [Download](https://shop.frantzmichaelsthilairevardman.com/get/freelane?ref=github) |
-| **Lovly: Credit Repair** | Lessons, letters that cite the law, deadlines, progress and badges | [Download](https://shop.frantzmichaelsthilairevardman.com/get/lovly?ref=github) |
-| **Reclaim** | Name and privacy defense: evidence log, takedown letters, lock-it-down checklist | [Download](https://shop.frantzmichaelsthilairevardman.com/get/reclaim?ref=github) |
-| **Safe Pocket** | Encrypted pocket for your ID and papers (English, Spanish, Kreyòl) | [Download](https://shop.frantzmichaelsthilairevardman.com/get/safepocket?ref=github) |
-| **Pure Beats** | Make original beats on your phone | [Download](https://shop.frantzmichaelsthilairevardman.com/get/purebeats?ref=github) |
-| **Signal Fire** | Stay in touch with no cell service | [Download](https://shop.frantzmichaelsthilairevardman.com/get/signalfire?ref=github) |
-| **Clear Check** | A plain-English check-up for your business | [Download](https://shop.frantzmichaelsthilairevardman.com/get/clearcheck?ref=github) |
-| **Rex Voice** | On-device voice cloning with spoken consent | [Download](https://shop.frantzmichaelsthilairevardman.com/get/rexvoice?ref=github) |
-| **Lead Hunter** | Homeowner leads for roofing and window reps | [Download](https://shop.frantzmichaelsthilairevardman.com/get/leadhunter?ref=github) |
+Get them all, with automatic updates, through **[Free Lane](https://shop.frantzmichaelsthilairevardman.com/apps/freelane)**, my own app store. 📰 New releases first: **[Vindie News](https://shop.frantzmichaelsthilairevardman.com/news/)** · 🛍 **[Frantz Vardman Shop](https://shop.frantzmichaelsthilairevardman.com/)**
 
-Own It and Safe to Spend are described below. Each app has its own privacy policy in this repo (the `*_PRIVACY.md` files).
+App files are kept in a private vault and handed out only to signed-in accounts, so this repo holds the build setup, not the apps themselves.
+
+Own It and Safe to Spend are described below.
 
 ---
 
