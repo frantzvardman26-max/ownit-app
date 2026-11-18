@@ -8,7 +8,7 @@ Bombs & Bullion is a free game made by Frantz Vardman.
 Only game progress on your phone: best score, gold, stars, missions, unlocked crowns, daily-gift streak, and a count of how often you tapped each "From the maker" card.
 
 ## What the game does NOT do
-- **It has no internet access.** The game is built without Android's internet permission, so it cannot send anything anywhere.
+- **Internet is used for one thing only: update checks.** When the game opens it asks the shop which version is newest, so it can offer "Update now". Only the app's name is sent, never anything about you. The game itself plays offline.
 - No account, no ad network, no analytics, no tracking, no data sales, and no in-app purchases.
 
 ## "From the maker" cards

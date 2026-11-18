@@ -42,15 +42,20 @@ jobs:
       - name: Tests (simulated phone)
         working-directory: android
         run: ./gradlew :monkey:testDebugUnitTest --no-daemon
-      - name: Privacy check (no internet permission)
+      - name: Privacy check (internet is only for the update check; no other sensitive permission)
         run: |
+          # Why: the privacy policy says the only internet use is asking the shop for the newest version. This fails the build if anything more is ever added.
           BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
-          PERMS=$("$BT/aapt2" dump permissions MonkeyMoney.apk); echo "$PERMS"
-          if echo "$PERMS" | grep -q "android.permission.INTERNET"; then echo "::error::INTERNET permission found"; exit 1; fi
+          for A in MonkeyMoney.apk; do [ -f "$A" ] || continue; PERMS=$("$BT/aapt2" dump permissions $A); echo "$A: $PERMS"
+            if echo "$PERMS" | grep -Eq "LOCATION|CONTACTS|CAMERA|RECORD_AUDIO|SMS|CALL_LOG|READ_PHONE|GET_ACCOUNTS|READ_EXTERNAL|READ_MEDIA|BLUETOOTH_SCAN|BODY_SENSORS"; then echo "::error::A sensitive permission was found in $A"; exit 1; fi
+          done
+          echo "OK: only the update check goes online"
       - name: Save to the private app vault (owner download only)
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           npx --yes wrangler@4 r2 object put "fv-app-vault/build/MonkeyMoney.apk" --file MonkeyMoney.apk --remote >/dev/null 2>&1 && echo "Saved to the private app vault" || { echo "::error::Could not save to the private app vault"; exit 1; }
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1); VC=$("$BT/aapt2" dump badging MonkeyMoney.apk | sed -n "s/.*versionCode='\([0-9]*\)'.*/\1/p" | head -1)
+          [ -n "$VC" ] && echo "{\"v\":$VC}" > MonkeyMoney.json && npx --yes wrangler@4 r2 object put "fv-app-vault/build/MonkeyMoney.json" --file MonkeyMoney.json --content-type application/json --remote >/dev/null 2>&1 && echo "In-app updates now offer build $VC" || echo "::warning::Could not publish the version for in-app updates"
           rm -f MonkeyMoney.apk

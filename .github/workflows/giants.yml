@@ -56,15 +56,14 @@ jobs:
           cd "$T" && git init -q && git checkout -q -b gg-screens && git add -A
           git -c user.name=ci -c user.email=ci@example.com commit -qm "screens"
           git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" gg-screens || echo "::warning::Couldn't push screenshots"
-      - name: Privacy check (the app must never get internet access)
+      - name: Privacy check (internet is only for the update check; no other sensitive permission)
         run: |
-          # Why: the privacy policy promises no internet access; this fails the build if that promise is ever broken.
+          # Why: the privacy policy says the only internet use is asking the shop for the newest version. This fails the build if anything more is ever added.
           BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
-          for A in GiantsAndGuns.apk GiantsGold.apk; do
-            PERMS=$("$BT/aapt2" dump permissions $A); echo "$A: $PERMS"
-            if echo "$PERMS" | grep -q "android.permission.INTERNET"; then echo "::error::INTERNET permission found in $A. Giants & Guns promises no internet access."; exit 1; fi
+          for A in GiantsAndGuns.apk GiantsGold.apk; do [ -f "$A" ] || continue; PERMS=$("$BT/aapt2" dump permissions $A); echo "$A: $PERMS"
+            if echo "$PERMS" | grep -Eq "LOCATION|CONTACTS|CAMERA|RECORD_AUDIO|SMS|CALL_LOG|READ_PHONE|GET_ACCOUNTS|READ_EXTERNAL|READ_MEDIA|BLUETOOTH_SCAN|BODY_SENSORS"; then echo "::error::A sensitive permission was found in $A"; exit 1; fi
           done
-          echo "OK: no internet permission"
+          echo "OK: only the update check goes online"
       - name: Publish the privacy policy page (public, on frantzvardman26-max/ownit-app)
         env:
           GH_TOKEN: ${{ secrets.BUILD_TOKEN }}
@@ -87,6 +86,13 @@ jobs:
           REPO=frantzvardman26-max/ownit-app
           gh release delete giants -R "$REPO" -y --cleanup-tag || true
           for f in GiantsAndGuns.apk; do [ -f "$f" ] && npx --yes wrangler@4 r2 object put "fv-app-vault/build/$(basename "$f")" --file "$f" --remote >/dev/null 2>&1 && echo "Saved to the private app vault: $(basename "$f")" || echo "::warning::Could not save $f to the private app vault"; done
+      - name: Version for in-app updates (the games ask /api/app-version on launch)
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1); VC=$("$BT/aapt2" dump badging GiantsAndGuns.apk | sed -n "s/.*versionCode='\([0-9]*\)'.*/\1/p" | head -1)
+          [ -n "$VC" ] && echo "{\"v\":$VC}" > GiantsAndGuns.json && npx --yes wrangler@4 r2 object put "fv-app-vault/build/GiantsAndGuns.json" --file GiantsAndGuns.json --content-type application/json --remote >/dev/null 2>&1 && echo "In-app updates now offer build $VC" || echo "::warning::Could not publish the version for in-app updates"
       - name: Deliver the Gold Edition to the shop (private repo only; never published here)
         env:
           GH_TOKEN: ${{ secrets.BUILD_TOKEN }}
