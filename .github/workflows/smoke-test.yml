@@ -27,7 +27,8 @@ jobs:
           # Every app file comes from the private app vault (never a public link).
           for n in FreeLane Lovly Reclaim BayouBurger RexVoice SignalFire SafeToSpend SafePocket PureBeats CrownRush ClearCheck GiantsAndGuns VindieAds PostHub PalmDistribute OwnIt; do
             npx --yes wrangler@4 r2 object get "fv-app-vault/build/$n.apk" --file "$n.apk" --remote >/dev/null 2>&1 || echo "::warning::no $n in the vault yet"; done
-          for n in FreeLane-store SignalFire-store LeadHunter-store; do npx --yes wrangler@4 r2 object get "fv-app-vault/store/$n.apk" --file "$n.apk" --remote >/dev/null 2>&1 || true; done
+          for n in FreeLane-store SignalFire-store LeadHunter-store LeadHunter; do npx --yes wrangler@4 r2 object get "fv-app-vault/store/$n.apk" --file "$n.apk" --remote >/dev/null 2>&1 || npx --yes wrangler@4 r2 object get "fv-app-vault/build/$n.apk" --file "$n.apk" --remote >/dev/null 2>&1 || true; done
+          find . -name '*.apk' -size 0 -delete   # a file that couldn't be fetched leaves an empty one: never test those
           ls -la
       - name: Run on emulator
         uses: reactivecircus/android-emulator-runner@v2
