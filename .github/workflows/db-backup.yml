@@ -1,0 +1,29 @@
+name: Database backup (nightly, encrypted into the private vault)
+# Exports the shop database (accounts, purchases, trust tokens, to-do, jobs), encrypts it with Frantz's vault key
+# (age, public recipient only), and saves it in the PRIVATE repo under vault/db/. Nothing readable is logged or kept here.
+on:
+  schedule:
+    - cron: "17 10 * * *"   # about 2:17 am Pacific
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      GH_TOKEN: ${{ secrets.BUILD_TOKEN }}
+    steps:
+      - name: Export, encrypt, save privately
+        run: |
+          set -euo pipefail
+          sudo apt-get install -y -qq age >/dev/null
+          gh api repos/frantzvardman26-max/3D/contents/vault/recipient.txt -q .content | base64 -d > recipient.txt
+          npx --yes wrangler@4 d1 export shop-downloads --remote --output db.sql > out.txt 2>&1 || { echo "export failed"; grep -iE "error" out.txt | head -3 | cut -c1-200; exit 1; }
+          age -R recipient.txt -o db.sql.age db.sql && shred -u db.sql
+          D=$(date -u +%F); P="vault/db/$D-shop-db.sql.age"
+          SHA=$(gh api "repos/frantzvardman26-max/3D/contents/$P" -q .sha 2>/dev/null || true)
+          base64 -w0 db.sql.age > b64.txt
+          jq -n --arg m "Database backup $D (encrypted)" --rawfile c b64.txt --arg s "$SHA" '{message:$m, content:$c, committer:{name:"Frantz Vardman", email:"frantzvardman26-max@users.noreply.github.com"}} + (if $s == "" then {} else {sha:$s} end)' > body.json
+          gh api -X PUT "repos/frantzvardman26-max/3D/contents/$P" --input body.json -q .content.path >/dev/null && echo "saved encrypted backup ($(stat -c %s db.sql.age) bytes)"
+          rm -f db.sql.age b64.txt body.json
