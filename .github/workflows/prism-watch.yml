@@ -2,7 +2,7 @@ name: Prism watch (tests the live game every hour)
 on:
   schedule: [{cron: '17 * * * *'}]
   workflow_dispatch:
-# Every hour Prism plays the live game through its 3 bands with brand-new chaos seeds (the date + hour), so over a day it
+# Every hour Prism plays the live village and one cave (a different cave each hour) through its 3 bands with brand-new chaos seeds, so over a day it
 # tries thousands of tap patterns nobody has tried. Game server calls are faked, so it never posts scores or touches real data.
 # A hot spot fails this run (GitHub emails the owner). Details are encrypted: this repo is public.
 permissions: {contents: read}
@@ -16,7 +16,7 @@ jobs:
       - name: Prism on the live game
         run: |
           cd shop/tools/twin && npm init -y >/dev/null && npm i --silent playwright@1.56.1 && npx playwright install --with-deps chromium >/dev/null
-          PRISM_SEED=$(date -u +%Y%m%d%H) PRISM_CHAOS=3 PRISM_STYLES=perfect,wrong node prism.js https://shop.frantzmichaelsthilairevardman.com out > summary.txt 2>&1; code=$?
+          PRISM_SEED=$(date -u +%Y%m%d%H) PRISM_QUICK=1 PRISM_ONLY=$(date -u +%H) PRISM_CHAOS=3 PRISM_STYLES=perfect,wrong,hint node prism.js https://shop.frantzmichaelsthilairevardman.com out > summary.txt 2>&1; code=$?
           head -1 summary.txt; echo "result=$code" >> $GITHUB_ENV
       - name: Encrypt the details
         if: always()
