@@ -37,11 +37,23 @@ jobs:
           n=0; for f in repo/*.apk; do [ -f "$f" ] || continue
             npx --yes wrangler@4 r2 object put "fv-app-vault/repo/$(basename "$f")" --file "$f" --content-type application/vnd.android.package-archive --remote > put.log 2>&1 && n=$((n+1)) || tail -4 put.log; done
           echo "library files in the vault: $n"
+      - name: Move every file still on a public release page into the vault (build/<file>)
+        env:
+          GH_TOKEN: ${{ secrets.BUILD_TOKEN }}
+        run: |
+          mkdir -p seed && cd seed; n=0
+          for R in frantzvardman26-max/ownit-app frantzvardman26-max/leadhunter-app; do
+            ALL=$(gh release list -R "$R" --limit 100 --json tagName -q '.[].tagName' 2>/dev/null || true)
+            for tag in $(echo "$ALL" | grep -vE '^v[0-9]+$'; echo "$ALL" | grep -E '^v[0-9]+$' | sort -V -r | head -1); do
+              gh release download "$tag" -R "$R" -p '*.apk' -p '*.aab' --clobber >/dev/null 2>&1 || true; done; done
+          for f in *.apk *.aab; do [ -f "$f" ] || continue
+            npx --yes wrangler@4 r2 object put "fv-app-vault/build/$f" --file "$f" --remote > put.log 2>&1 && n=$((n+1)) || tail -3 put.log; done
+          echo "release files moved into the vault: $n"
       - name: Copy each app's download file
         run: |
           mkdir -p apps
           python3 -c "import re;t=open('shop/site/functions/api/_apps.js').read();[print(i,u) for i,u in re.findall(r\"\\{ id: '([a-z0-9]+)'.*?file: '([^']+)'\",t,re.S)]" > apps.txt; cat apps.txt | cut -d' ' -f1 | tr '\n' ' '
           n=0; while read -r id url; do
-            if curl -fsSL "$url" -o "apps/$id.apk"; then npx --yes wrangler@4 r2 object put "fv-app-vault/apps/$id.apk" --file "apps/$id.apk" --content-type application/vnd.android.package-archive --remote > put.log 2>&1 && n=$((n+1)) || tail -4 put.log; else echo "::warning::no file yet for $id"; fi
+            N=$(basename "$url"); if npx --yes wrangler@4 r2 object get "fv-app-vault/build/$N" --file "apps/$id.apk" --remote >/dev/null 2>&1 || curl -fsSL "$url" -o "apps/$id.apk"; then npx --yes wrangler@4 r2 object put "fv-app-vault/apps/$id.apk" --file "apps/$id.apk" --content-type application/vnd.android.package-archive --remote > put.log 2>&1 && n=$((n+1)) || tail -4 put.log; else echo "::warning::no file yet for $id"; fi
           done < apps.txt
           echo "app files in the vault: $n of $(wc -l < apps.txt)"

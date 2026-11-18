@@ -17,6 +17,9 @@ jobs:
   publish:
     if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -47,7 +50,9 @@ jobs:
       - name: Collect the latest APKs
         run: |
           cd fd && mkdir -p repo metadata
-          get() { curl -fsSL --retry 3 -o "repo/$1" "$2" && echo "got $1" || { echo "::warning::Couldn't download $1"; rm -f "repo/$1"; }; }
+          # Each app file comes from the private app vault (build/<file>); the old public link is only a fallback while moving over.
+          vget() { npx --yes wrangler@4 r2 object get "fv-app-vault/build/$(basename "$2")" --file "$3" --remote >/dev/null 2>&1; }
+          get() { vget "$1" "$2" "repo/$1" && echo "got $1 (vault)" || { curl -fsSL --retry 3 -o "repo/$1" "$2" && echo "got $1 (old link)" || { echo "::warning::Couldn't get $1"; rm -f "repo/$1"; }; }; }
           get OwnIt.apk https://github.com/frantzvardman26-max/ownit-app/releases/latest/download/OwnIt.apk
           get SafeToSpend.apk https://github.com/frantzvardman26-max/ownit-app/releases/download/safetospend/SafeToSpend.apk
           get LeadHunter.apk https://github.com/frantzvardman26-max/leadhunter-app/releases/latest/download/LeadHunter.apk
@@ -146,7 +151,8 @@ jobs:
           set -e
           BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1); T=$(mktemp -d); SHOP=https://shop.frantzmichaelsthilairevardman.com
           entry() { # package-hint url name summary icon "shots"
-            curl -fsSL --retry 3 -o "$T/a.apk" "$2" || { echo "::warning::no $3"; return 0; }
+            N=$(basename "$2"); npx --yes wrangler@4 r2 object get "fv-app-vault/build/$N" --file "$T/a.apk" --remote >/dev/null 2>&1 || curl -fsSL --retry 3 -o "$T/a.apk" "$2" || { echo "::warning::no $3"; return 0; }
+            npx --yes wrangler@4 r2 object put "fv-app-vault/repo/$N" --file "$T/a.apk" --remote >/dev/null 2>&1 || echo "::warning::couldn't vault $N"
             B=$("$BT/aapt2" dump badging "$T/a.apk" | head -1)
             # Anchored matches: newer aapt2 adds compileSdkVersionCodename='16', which a loose "name='" match picked up as the package.
             PKG=$(echo "$B" | sed -E "s/^package: name='([^']+)'.*/\1/"); VC=$(echo "$B" | sed -E "s/.* versionCode='([^']+)'.*/\1/"); VN=$(echo "$B" | sed -E "s/.* versionName='([^']+)'.*/\1/")
@@ -155,6 +161,7 @@ jobs:
             python3 - "$PKG" "$VC" "$VN" "$SHA" "$SZ" "$2" "$3" "$4" "$5" "$6" <<'PY'
           import json, sys, os
           pkg, vc, vn, sha, sz, apk, name, summary, icon, shots = sys.argv[1:11]
+          apk = 'https://shop.frantzmichaelsthilairevardman.com/r/' + apk.rsplit('/', 1)[-1]   # private: served only to signed-in Free Lane
           f = 'fd/repo/extras.json'; cur = json.load(open(f)) if os.path.exists(f) else []
           cur.append({"packageName": pkg, "name": name, "summary": summary, "authorName": "Frantz Vardman", "apk": apk, "sha256": sha, "size": int(sz),
                       "versionCode": int(vc), "versionName": vn, "minSdkVersion": 26, "icon": icon, "screenshots": [s for s in shots.split() if s]})
@@ -183,7 +190,9 @@ jobs:
         run: |
           set -e
           if [ -z "$GH_TOKEN" ]; then echo "No publish token"; exit 0; fi
-          T=$(mktemp -d); cp -r fd/repo "$T/repo"
+          # App files go to the private app vault (repo/<file>); the public branch keeps only the catalog, icons and screenshots.
+          n=0; for f in fd/repo/*.apk; do [ -f "$f" ] || continue; npx --yes wrangler@4 r2 object put "fv-app-vault/repo/$(basename "$f")" --file "$f" --remote >/dev/null 2>&1 && n=$((n+1)) || { echo "::error::Couldn't save $(basename "$f") to the private vault"; exit 1; }; done; echo "library files saved privately: $n"
+          T=$(mktemp -d); cp -r fd/repo "$T/repo"; rm -f "$T"/repo/*.apk "$T"/repo/*.apk.asc "$T"/repo/*.idsig
           cat > "$T/README.md" <<EOF
           # Frantz Vardman Apps (F-Droid library)
           

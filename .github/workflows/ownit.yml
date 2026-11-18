@@ -81,14 +81,15 @@ jobs:
           rm -f "$RUNNER_TEMP/release.jks"
       - name: Publish to the public download page (frantzvardman26-max/ownit-app)
         env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           GH_TOKEN: ${{ secrets.BUILD_TOKEN }}
         run: |
           if [ -z "$GH_TOKEN" ]; then echo "No OWNIT_PUBLISH_TOKEN secret yet, so skipping the public download page."; exit 0; fi
           REPO=frantzvardman26-max/ownit-app
           CODE=$((100 + $APP_BUILD_NUMBER))
           NOTES=$(cat android/ownit/RELEASE_NOTES.md 2>/dev/null || git log -1 --format=%s)
-          gh release create "v$CODE" OwnIt.apk $(ls *-GooglePlay.aab 2>/dev/null) -R "$REPO" --latest \
-            --title "Own It 2.$APP_BUILD_NUMBER" --notes "$NOTES"
+          for f in OwnIt.apk $(ls *-GooglePlay.aab 2>/dev/null); do [ -f "$f" ] && npx --yes wrangler@4 r2 object put "fv-app-vault/build/$(basename "$f")" --file "$f" --remote >/dev/null 2>&1 && echo "Saved to the private app vault: $(basename "$f")" || echo "::warning::Could not save $f to the private app vault"; done
           # The privacy policy lives on the public page so it has a link anyone can open.
           SHA=$(gh api "repos/$REPO/contents/PRIVACY.md" --jq .sha 2>/dev/null || true)
           echo "$SHA" | grep -Eq '^[0-9a-f]{40}$' || SHA=""
@@ -109,7 +110,7 @@ jobs:
           fi
           # Keep only the newest Own It version on the page. Only tags like v214 count: other apps' tags (vindie...) must never match.
           # (Sort by version number: GitHub gives every release here the same date.)
-          gh release list -R "$REPO" --limit 50 --json tagName -q '.[].tagName' | grep -E '^v[0-9]+$' | sort -V -r | tail -n +2 \
+          gh release list -R "$REPO" --limit 50 --json tagName -q '.[].tagName' | grep -E '^v[0-9]+$' | sort -V -r \
             | xargs -r -n1 gh release delete -y --cleanup-tag -R "$REPO"
       - name: Refresh the F-Droid library so phones see this update
         if: success()

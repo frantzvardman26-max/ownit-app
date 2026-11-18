@@ -7,6 +7,7 @@ on:
   workflow_dispatch:
 permissions:
   contents: write
+  actions: write
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -88,10 +89,11 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with: { path: files, merge-multiple: true }
-      - name: Publish (release "store-files", not marked latest)
-        env: { GH_TOKEN: "${{ github.token }}" }
+      - name: Save to the private app vault (store/ folder; no public copy)
+        env: { GH_TOKEN: "${{ github.token }}", CLOUDFLARE_API_TOKEN: "${{ secrets.CLOUDFLARE_API_TOKEN }}", CLOUDFLARE_ACCOUNT_ID: "${{ secrets.CLOUDFLARE_ACCOUNT_ID }}" }
         run: |
           ls -la files
           gh release delete store-files -R "$GITHUB_REPOSITORY" -y --cleanup-tag || true
-          gh release create store-files files/*.apk -R "$GITHUB_REPOSITORY" --latest=false --title "Store-ready app files" \
-            --notes "Release builds for app stores, each signed with its own permanent key. Upload the matching file in each store's developer console."
+          for f in files/*.apk; do npx --yes wrangler@4 r2 object put "fv-app-vault/store/$(basename "$f")" --file "$f" --remote >/dev/null 2>&1 && echo "Saved to the private app vault: $(basename "$f")" || echo "::warning::Could not save $f"; done
+          # The build files were passed between jobs as temporary files: delete them now so no copy stays on this public repo.
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts" -q '.artifacts[].id' | xargs -r -I{} gh api -X DELETE "repos/$GITHUB_REPOSITORY/actions/artifacts/{}" || true

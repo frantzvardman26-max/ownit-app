@@ -78,15 +78,15 @@ jobs:
           if [ "$NEWB" != "$OLDB" ]; then gh api -X PUT "repos/$REPO/contents/$F" -f message="Giants & Guns privacy policy" -f content="$NEWB" ${SHA:+-f sha="$SHA"} >/dev/null && echo "Policy: https://github.com/$REPO/blob/main/$F" || echo "::warning::Couldn't publish the policy"; else echo "Policy unchanged"; fi
       - name: Public download page (frantzvardman26-max/ownit-app, tag "giants", never marked latest so Own It's updater is unaffected)
         env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           GH_TOKEN: ${{ secrets.BUILD_TOKEN }}
         run: |
           # Why: a link anyone can open on their phone to install the app before it's on Google Play.
           if [ -z "$GH_TOKEN" ]; then echo "No publish token"; exit 0; fi
           REPO=frantzvardman26-max/ownit-app
           gh release delete giants -R "$REPO" -y --cleanup-tag || true
-          gh release create giants GiantsAndGuns.apk -R "$REPO" --latest=false \
-            --title "Giants & Guns" --notes "Giants & Guns v1.0: a free side-view shooter. Endless rooms, 4 giants, power-ups, guns and upgrades. Offline, no tracking. Build $APP_BUILD_NUMBER." \
-            && echo "Public download: https://github.com/$REPO/releases/download/giants/GiantsAndGuns.apk" || echo "::warning::Couldn't publish the public download"
+          for f in GiantsAndGuns.apk; do [ -f "$f" ] && npx --yes wrangler@4 r2 object put "fv-app-vault/build/$(basename "$f")" --file "$f" --remote >/dev/null 2>&1 && echo "Saved to the private app vault: $(basename "$f")" || echo "::warning::Could not save $f to the private app vault"; done
       - name: Deliver the Gold Edition to the shop (private repo only; never published here)
         env:
           GH_TOKEN: ${{ secrets.BUILD_TOKEN }}

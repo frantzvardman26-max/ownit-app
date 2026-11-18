@@ -13,6 +13,8 @@ jobs:
     timeout-minutes: 45
     env:
       GH_TOKEN: ${{ github.token }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     steps:
       - uses: actions/checkout@v5
       - name: Enable KVM
@@ -22,9 +24,10 @@ jobs:
       - name: Download the published APKs
         run: |
           mkdir apks && cd apks
-          for t in freelane lovly reclaim bayouburger rexvoice signalfire safetospend safepocket purebeats crownrush clearcheck giants vindie posthub palm; do gh release download $t -R "$GITHUB_REPOSITORY" -p '*.apk' || true; done
-          gh release download "$(gh api repos/$GITHUB_REPOSITORY/releases/latest -q .tag_name)" -R "$GITHUB_REPOSITORY" -p 'OwnIt.apk' || true   # always the newest Own It
-          gh release download store-files -R "$GITHUB_REPOSITORY" -p 'FreeLane-store.apk' -p 'SignalFire-store.apk' -p 'LeadHunter-store.apk' || true
+          # Every app file comes from the private app vault (never a public link).
+          for n in FreeLane Lovly Reclaim BayouBurger RexVoice SignalFire SafeToSpend SafePocket PureBeats CrownRush ClearCheck GiantsAndGuns VindieAds PostHub PalmDistribute OwnIt; do
+            npx --yes wrangler@4 r2 object get "fv-app-vault/build/$n.apk" --file "$n.apk" --remote >/dev/null 2>&1 || echo "::warning::no $n in the vault yet"; done
+          for n in FreeLane-store SignalFire-store LeadHunter-store; do npx --yes wrangler@4 r2 object get "fv-app-vault/store/$n.apk" --file "$n.apk" --remote >/dev/null 2>&1 || true; done
           ls -la
       - name: Run on emulator
         uses: reactivecircus/android-emulator-runner@v2

@@ -57,15 +57,15 @@ jobs:
           git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" pd-screens || echo "::warning::Couldn't push screenshots"
       - name: Public download page (frantzvardman26-max/ownit-app, tag "palm", never marked latest so Own It's updater is unaffected)
         env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           GH_TOKEN: ${{ secrets.BUILD_TOKEN }}
         run: |
           # Why: a link anyone can open on their phone to install the app before it's on Google Play.
           if [ -z "$GH_TOKEN" ]; then echo "No publish token"; exit 0; fi
           REPO=frantzvardman26-max/ownit-app
           gh release delete palm -R "$REPO" -y --cleanup-tag || true
-          gh release create palm PalmDistribute.apk -R "$REPO" --latest=false \
-            --title "Palm Distribute (Beta)" --notes "BETA: merch for independent artists. Apply and set up your store. Build $APP_BUILD_NUMBER." \
-            && echo "Public download: https://github.com/$REPO/releases/download/palm/PalmDistribute.apk" || echo "::warning::Couldn't publish the public download"
+          for f in PalmDistribute.apk; do [ -f "$f" ] && npx --yes wrangler@4 r2 object put "fv-app-vault/build/$(basename "$f")" --file "$f" --remote >/dev/null 2>&1 && echo "Saved to the private app vault: $(basename "$f")" || echo "::warning::Could not save $f to the private app vault"; done
       - name: Publish the privacy policy page (public, on frantzvardman26-max/ownit-app)
         env:
           GH_TOKEN: ${{ secrets.BUILD_TOKEN }}

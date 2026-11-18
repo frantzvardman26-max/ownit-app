@@ -120,14 +120,14 @@ jobs:
           fi
       - name: Public download page (frantzvardman26-max/ownit-app, tag "safetospend", never marked latest so Own It's updater is unaffected)
         env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           GH_TOKEN: ${{ secrets.BUILD_TOKEN }}
         run: |
           if [ -z "$GH_TOKEN" ]; then echo "No publish token"; exit 0; fi
           REPO=frantzvardman26-max/ownit-app
           gh release delete safetospend -R "$REPO" -y --cleanup-tag || true
-          gh release create safetospend SafeToSpend.apk $(ls *-GooglePlay.aab 2>/dev/null) -R "$REPO" --latest=false \
-            --title "Safe to Spend" --notes "Safe to Spend: know what's safe to spend until payday. Free, offline, no account. Build $APP_BUILD_NUMBER." \
-            && echo "Public download: https://github.com/$REPO/releases/download/safetospend/SafeToSpend.apk" || echo "::warning::Couldn't publish the public download"
+          for f in SafeToSpend.apk $(ls *-GooglePlay.aab 2>/dev/null); do [ -f "$f" ] && npx --yes wrangler@4 r2 object put "fv-app-vault/build/$(basename "$f")" --file "$f" --remote >/dev/null 2>&1 && echo "Saved to the private app vault: $(basename "$f")" || echo "::warning::Could not save $f to the private app vault"; done
       - name: Refresh the F-Droid library so phones see this update
         if: success()
         env:

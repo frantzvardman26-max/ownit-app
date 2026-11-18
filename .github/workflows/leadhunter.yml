@@ -48,6 +48,8 @@ jobs:
           ls -la ../LeadHunter.apk
       - name: Publish to the public download page (frantzvardman26-max/leadhunter-app)
         env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           GH_TOKEN: ${{ secrets.BUILD_TOKEN }}
         run: |
           if [ -z "$GH_TOKEN" ]; then echo "No token yet, so skipping the public download page."; exit 0; fi
@@ -55,14 +57,10 @@ jobs:
           CODE=$((100 + $APP_BUILD_NUMBER))
           NOTES=$(git log -1 --format=%s)
           if ! gh repo view "$REPO" >/dev/null 2>&1; then echo "Public repo $REPO isn't reachable with this token yet, so skipping."; exit 0; fi
-          if ! gh release create "v$CODE" LeadHunter.apk $(ls *-GooglePlay.aab 2>/dev/null) -R "$REPO" --latest \
-            --title "Lead Hunter 1.$APP_BUILD_NUMBER" --notes "$NOTES"; then
-            echo "::warning::The publish token can't write to $REPO yet. Give it Contents: Read and write on that repo."
-            exit 0
-          fi
-          # Keep only the newest version on the page.
+          for f in LeadHunter.apk $(ls *-GooglePlay.aab 2>/dev/null); do [ -f "$f" ] && npx --yes wrangler@4 r2 object put "fv-app-vault/build/$(basename "$f")" --file "$f" --remote >/dev/null 2>&1 && echo "Saved to the private app vault: $(basename "$f")" || echo "::warning::Could not save $f to the private app vault"; done
+          # No public copies: remove every release here (the app lives in the private vault).
           # (Sort by version number: GitHub gives every release here the same date.)
-          gh release list -R "$REPO" --limit 50 --json tagName -q '.[].tagName' | grep -E '^v[0-9]+$' | sort -V -r | tail -n +2 \
+          gh release list -R "$REPO" --limit 50 --json tagName -q '.[].tagName' | grep -E '^v[0-9]+$' | sort -V -r \
             | xargs -r -n1 gh release delete -y --cleanup-tag -R "$REPO"
       - name: Refresh the F-Droid library so phones see this update
         if: success()
