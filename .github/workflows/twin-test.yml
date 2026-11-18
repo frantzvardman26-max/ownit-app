@@ -18,7 +18,7 @@ jobs:
         run: |
           K=$(npx --yes wrangler@3 d1 execute shop-downloads --remote --json --command "SELECT value FROM owner_secrets WHERE name='twin_key'" 2>/dev/null | jq -r '.[0].results[0].value'); echo "::add-mask::$K"; echo "TWIN_KEY=$K" >> $GITHUB_ENV
           cd shop/tools/twin && npm init -y >/dev/null && npm i --silent playwright@1.56.1 && npx playwright install --with-deps chromium >/dev/null
-          RUN_ID=${{ github.run_id }} TWIN_KEY=$K node robot.js | grep -E "^(PASS|FAIL)|passed" || true
+          RUN_ID=${{ github.run_id }} TWIN_KEY=$K node robot.js | grep -E "^(PASS|FAIL|PRISM-HOT)|passed" || true
       - name: Encrypt results (public repo)
         env: {AK: "${{ secrets.BUILD_TOKEN }}"}
         run: tar -C shop/tools/twin/out -cz . | openssl enc -aes-256-cbc -pbkdf2 -salt -pass env:AK -out web.enc
