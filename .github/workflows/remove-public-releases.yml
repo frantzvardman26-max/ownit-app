@@ -1,0 +1,23 @@
+name: Remove public app releases (run by Frantz)
+# Every app file now lives in the private app vault. This removes the old public release pages (and their tags) here and on
+# leadhunter-app, so no app file can be downloaded without signing in. Run it yourself: Actions -> this workflow -> Run workflow.
+on:
+  workflow_dispatch:
+    inputs:
+      confirm: {description: 'Type REMOVE to delete every public release (copies are safe in the private vault)', required: true}
+permissions: {contents: write}
+jobs:
+  remove:
+    runs-on: ubuntu-latest
+    if: ${{ inputs.confirm == 'REMOVE' }}
+    env:
+      GH_TOKEN: ${{ secrets.BUILD_TOKEN }}
+    steps:
+      - run: |
+          for R in frantzvardman26-max/ownit-app frantzvardman26-max/leadhunter-app; do
+            gh api "repos/$R/releases?per_page=100" -q '.[]|"\(.id) \(.tag_name)"' | while read -r id tag; do
+              gh api -X DELETE "repos/$R/releases/$id" >/dev/null && echo "removed $R $tag"
+              gh api -X DELETE "repos/$R/git/refs/tags/$tag" >/dev/null 2>&1 || true
+            done
+            echo "$R public releases left: $(gh api "repos/$R/releases" -q length)"
+          done
