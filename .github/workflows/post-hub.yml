@@ -13,3 +13,5 @@ jobs:
     steps:
       - name: Post what's due
         run: curl -fsS --max-time 280 "https://shop.frantzmichaelsthilairevardman.com/api/social?run=1" || echo "nothing posted this time"
+      - name: Vindie Plus trial reminders (emails people 2 days before their free week ends, once each; the reply is only counts)
+        run: curl -fsS --max-time 60 "https://shop.frantzmichaelsthilairevardman.com/api/plus?remind=1" || echo "no reminders this time"
