@@ -27,7 +27,7 @@ jobs:
         run: |
           mkdir apks && cd apks
           # Every app file comes from the private app vault (never a public link).
-          for n in ${{ inputs.only || 'FreeLane Lovly Reclaim BayouBurger RexVoice SignalFire SafeToSpend SafePocket PureBeats CrownRush ClearCheck GiantsAndGuns CaveHunt MonkeyMoney BombsAndBullion VindieAds PostHub PalmDistribute OwnIt' }}; do
+          for n in ${{ inputs.only || 'JFStudios FreeLane Lovly Reclaim BayouBurger RexVoice SignalFire SafeToSpend SafePocket PureBeats CrownRush ClearCheck GiantsAndGuns CaveHunt MonkeyMoney BombsAndBullion VindieAds PostHub PalmDistribute OwnIt' }}; do
             npx --yes wrangler@4 r2 object get "fv-app-vault/build/$n.apk" --file "$n.apk" --remote >/dev/null 2>&1 || echo "::warning::no $n in the vault yet"; done
           [ -n "${{ inputs.only }}" ] || for n in FreeLane-store SignalFire-store LeadHunter-store LeadHunter; do npx --yes wrangler@4 r2 object get "fv-app-vault/store/$n.apk" --file "$n.apk" --remote >/dev/null 2>&1 || npx --yes wrangler@4 r2 object get "fv-app-vault/build/$n.apk" --file "$n.apk" --remote >/dev/null 2>&1 || true; done
           find . -name '*.apk' -size 0 -delete   # a file that couldn't be fetched leaves an empty one: never test those
