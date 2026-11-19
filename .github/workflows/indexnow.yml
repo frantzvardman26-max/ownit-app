@@ -1,0 +1,25 @@
+name: Tell search engines about new pages
+# IndexNow: Bing, Yandex, Seznam, Naver and others pick up new and changed pages within minutes (Google reads the
+# sitemaps instead; those are linked from robots.txt). Runs daily and after every shop deploy. Nothing personal is sent: only page addresses.
+on:
+  workflow_dispatch:
+  schedule: [{ cron: '17 9 * * *' }]
+  workflow_run:
+    workflows: ["Verify shop products"]
+    types: [completed]
+permissions: { contents: read }
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send every page in both sitemaps
+        run: |
+          set -e
+          for site in shop.frantzmichaelsthilairevardman.com www.frantzmichaelsthilairevardman.com; do
+            urls=$(curl -fsSL "https://$site/sitemap.xml" | grep -o '<loc>[^<]*</loc>' | sed 's#</\?loc>##g' | head -9000)
+            n=$(echo "$urls" | grep -c . || true); echo "$site: $n pages"
+            [ "$n" -gt 0 ] || continue
+            body=$(python3 -c 'import json,sys; u=[l for l in sys.stdin.read().split() if l]; print(json.dumps({"host": sys.argv[1], "key": sys.argv[2], "keyLocation": "https://"+sys.argv[1]+"/"+sys.argv[2]+".txt", "urlList": u}))' "$site" "b9b0291a9b5d8d4d1dcc0c120304d176" <<< "$urls")
+            code=$(curl -s -o /dev/null -w '%{http_code}' -X POST https://api.indexnow.org/indexnow -H 'Content-Type: application/json; charset=utf-8' --data "$body")
+            echo "IndexNow answered $code (200/202 = accepted)"
+          done
