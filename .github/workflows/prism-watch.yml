@@ -26,7 +26,7 @@ jobs:
           set +e   # a failed check must still print its one-line result (counts only) before the job reports it
           cd shop/tools/twin && npm init -y >/dev/null && npm i --silent playwright@1.56.1 && npx playwright install --with-deps chromium >/dev/null
           PRISM_PATH=${{ matrix.path }} PRISM_PORTRAIT=${{ matrix.portrait }} PRISM_SEED=$(date -u +%Y%m%d%H) PRISM_QUICK=1 PRISM_ONLY=$(date -u +%H) PRISM_CHAOS=3 PRISM_STYLES=perfect,wrong,hint node prism.js https://shop.frantzmichaelsthilairevardman.com out > summary.txt 2>&1; code=$?
-          grep -m1 'frames split' summary.txt || echo "Prism stopped early (exit $code): $(grep -m1 -oE '[A-Za-z]+Error|page\.[a-zA-Z]+: [A-Za-z ]{0,60}' summary.txt)"; echo "result=$code" >> $GITHUB_ENV
+          grep -m1 'frames split' summary.txt || echo "Prism stopped early (exit $code): $(grep -m1 -oE '[A-Za-z]+Error|page\.[a-zA-Z]+: [A-Za-z ]{0,60}' summary.txt)"; grep -E "^  [0-9]+× " summary.txt | sed "s/↳ replay.*//" | head -8; echo "result=$code" >> $GITHUB_ENV
       - name: Encrypt the details
         if: always()
         env: {AK: "${{ secrets.BUILD_TOKEN }}"}
