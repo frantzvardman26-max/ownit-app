@@ -4,7 +4,7 @@ name: F-Droid app library
 # The library is rebuilt after any app build finishes (no daily run: it saves free build minutes).
 on:
   workflow_run:
-    workflows: ["Build Own It", "Build Safe to Spend", "Build Lead Hunter", "Build Safe Pocket", "Build Bombs & Bullion", "Build Pure Beats", "Build Signal Fire", "Build Clear Check", "Build Rex Voice", "Build Free Lane", "Build Bayou Burger"]
+    workflows: ["Build Own It", "Build Safe to Spend", "Build Lead Hunter", "Build Safe Pocket", "Build Bombs & Bullion", "Build Pure Beats", "Build Signal Fire", "Build Clear Check", "Build Rex Voice", "Build Free Lane", "Build Bayou Burger", "Build Cave Hunt", "Build Monkey Money"]
     types: [completed]
   workflow_dispatch:
 permissions:
@@ -12,7 +12,7 @@ permissions:
   actions: write
 concurrency:
   group: fdroid-repo
-  cancel-in-progress: true   # many builds finishing together only need the last refresh
+  cancel-in-progress: false   # never stop a refresh halfway: the catalog and the app files must always be published together (a cut-off run left them out of step and Free Lane refused the mismatched file)
 jobs:
   publish:
     if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
@@ -67,6 +67,8 @@ jobs:
           get GiantsAndGuns.apk https://github.com/frantzvardman26-max/ownit-app/releases/download/giants/GiantsAndGuns.apk
           get VindieAds.apk https://github.com/frantzvardman26-max/ownit-app/releases/download/vindie/VindieAds.apk
           get PalmDistribute.apk https://github.com/frantzvardman26-max/ownit-app/releases/download/palm/PalmDistribute.apk
+          get CaveHunt.apk https://shop.frantzmichaelsthilairevardman.com/missing/CaveHunt.apk
+          get MonkeyMoney.apk https://shop.frantzmichaelsthilairevardman.com/missing/MonkeyMoney.apk
           get VindieNews.apk https://github.com/frantzvardman26-max/ownit-app/releases/download/vindienews/VindieNews.apk
           get BayouBurger.apk https://github.com/frantzvardman26-max/ownit-app/releases/download/bayouburger/BayouBurger.apk
           # Rex Voice is left out: ~220 MB with its voice model, over GitHub's 100 MB file limit for this branch.
@@ -81,6 +83,8 @@ jobs:
           m com.leadhunter.app Office "Lead finder for roofing and window teams" "Find, track and follow up on leads." "Lead Hunter"
           m com.frantzvardman.safepocket Security "Keep your ID and papers safe on your phone" "Encrypted vault, reminders and help guides in English, Spanish and Haitian Creole. No internet permission." "Safe Pocket"
           m com.frantzvardman.crownrush Games "Catch the gold, dodge the bombs" "Bombs & Bullion: a one-thumb arcade game starring 10 animal superheroes. Catch the gold, dodge the bombs, grab the lightning to unleash your hero's power, and beat the Bomb King. Offline." "Bombs & Bullion"
+          m com.frantzvardman.cave Games "Riddles, torches and five caves" "Cave Hunt: build your village, raid five story caves, answer riddles before your torch burns out, and earn up to 3 stars a cave. Easy, Medium and Hard." "Cave Hunt"
+          m com.frantzvardman.monkey Games "A genius monkey escapes the lab" "Monkey Money: run, jump and blast bananas through 10 stages, grab power-ups, unlock rarer monkeys and beat the lab director's mech." "Monkey Money"
           m com.frantzvardman.giants Games "A side-view shooter: endless rooms, 4 giants" "Giants & Guns: run, jump and blast your way through room after room while your gun aims itself. Level up and pick power-ups like Purple Love Slime, Bounce Ball, Boom Headphones and the Haymaker Glove, then take down Big Head, Brow, Grimjaw and KRAMP the Sleeping Giant. Free and offline, nothing collected. Want more? The Gold Edition (no ads, 500 gold, the Golden Gatling) is in the Frantz Vardman Shop." "Giants & Guns"
           m com.frantzvardman.vindie Internet "BETA · Advertise your business on Frantz Vardman sites and apps" "BETA. Vindie Ads: book an ad from \$25 a week. Add a headline, picture and link, see a live preview, pay in your browser, and track your ad's views. Ads rotate fairly with no trackers." "Vindie Ads (Beta)"
           m com.frantzvardman.palm Multimedia "BETA · Merch for independent artists" "BETA. Palm Distribute Music: apply in three quick steps, set up your own merch store and artist page, and keep your rights. Checkout opens in your browser. No trackers." "Palm Distribute (Beta)"
@@ -105,6 +109,7 @@ jobs:
           icon com.frantzvardman.safepocket safepocket; icon com.frantzvardman.crownrush crownrush; icon com.frantzvardman.purebeats purebeats
           icon com.frantzvardman.signalfire signalfire; icon com.frantzvardman.clearcheck clearcheck; icon com.frantzvardman.rexvoice rexvoice; icon com.frantzvardman.freelane freelane; icon com.frantzvardman.lovly lovly; icon com.frantzvardman.reclaim reclaim; icon com.bayouburgerllc.app bayouburger
           mkdir -p metadata/com.frantzvardman.giants/en-US/phoneScreenshots; cp ../android/giants/docs/icon.png metadata/com.frantzvardman.giants/en-US/icon.png
+          for g in cave monkey; do mkdir -p metadata/com.frantzvardman.$g/en-US/phoneScreenshots; cp ../android/$g/docs/icon.png metadata/com.frantzvardman.$g/en-US/icon.png; done
           mkdir -p metadata/com.frantzvardman.vindie/en-US/phoneScreenshots; cp ../android/vindie/docs/icon.png metadata/com.frantzvardman.vindie/en-US/icon.png
           mkdir -p metadata/com.frantzvardman.palm/en-US/phoneScreenshots; cp ../android/palm/docs/icon.png metadata/com.frantzvardman.palm/en-US/icon.png
           mkdir -p metadata/com.frantzvardman.vindienews/en-US; cp ../android/vindienews/docs/icon.png metadata/com.frantzvardman.vindienews/en-US/icon.png
