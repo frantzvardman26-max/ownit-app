@@ -16,5 +16,5 @@ then echo "RESULT $pkg: running OK";
 else echo "RESULT $pkg: NOT RUNNING";
 fi;
 adb logcat -d -b crash | head -60;
-adb logcat -d | grep -E "FATAL EXCEPTION|AndroidRuntime" -A25 | head -50;
+adb logcat -d | grep -E "FATAL EXCEPTION|AndroidRuntime|render process|RenderProcessGone|ANR in|Fatal signal" -A25 | head -80;
 done
