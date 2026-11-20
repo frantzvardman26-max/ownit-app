@@ -1,4 +1,4 @@
-name: Repo descriptions (one-time)
+name: Repo descriptions and topics
 # Why: sets the public description, website and topics of Frantz's public repos (the session proxy can't change repo settings).
 on: workflow_dispatch
 jobs:
@@ -8,7 +8,17 @@ jobs:
       - env:
           GH_TOKEN: ${{ secrets.BUILD_TOKEN }}
         run: |
-          gh api -X PATCH repos/frantzvardman26-max/ownit-app -f description="Free Android apps and games by Frantz Vardman, plus the Free Lane / F-Droid app library. No account, no ads." -f homepage="https://shop.frantzmichaelsthilairevardman.com/" > /dev/null && echo "ownit-app description set" || echo "::warning::ownit-app description not set"
-          gh api -X PUT repos/frantzvardman26-max/ownit-app/topics -f "names[]=android" -f "names[]=android-apps" -f "names[]=fdroid" -f "names[]=free-apps" -f "names[]=privacy" -f "names[]=offline-first" -f "names[]=indie-games" -f "names[]=kotlin" > /dev/null && echo "ownit-app topics set" || echo "::warning::topics not set"
-          gh api -X PATCH repos/frantzvardman26-max/leadhunter-app -f description="Lead Hunter: homeowner leads for roofing and window reps, from public county records and hail reports. Free Android app." -f homepage="https://shop.frantzmichaelsthilairevardman.com/apps/leadhunter" > /dev/null && echo "leadhunter-app description set" || echo "::warning::leadhunter-app description not set"
-          gh api -X PATCH repos/frantzvardman26-max/frantzvardman26-max -f description="Frantz Vardman: Android apps, games, Vindie News and the Frantz Vardman Shop" -f homepage="https://shop.frantzmichaelsthilairevardman.com/" > /dev/null && echo "profile description set" || echo "::warning::profile description not set"
+          set_repo() {   # repo, description, homepage, topics...
+            r="$1"; d="$2"; h="$3"; shift 3
+            gh api -X PATCH "repos/frantzvardman26-max/$r" -f description="$d" -f homepage="$h" -F has_wiki=false -F has_projects=false > /dev/null && echo "$r: description set" || echo "::warning::$r description not set"
+            args=(); for t in "$@"; do args+=(-f "names[]=$t"); done
+            gh api -X PUT "repos/frantzvardman26-max/$r/topics" "${args[@]}" > /dev/null && echo "$r: topics set" || echo "::warning::$r topics not set"
+          }
+          set_repo ownit-app "Android apps and games by Frantz Vardman: CI builds, signed releases, the Free Lane store and an F-Droid library. Private by default." \
+            "https://shop.frantzmichaelsthilairevardman.com/" android android-apps kotlin github-actions ci-cd fdroid privacy offline-first indie-games app-store
+          set_repo leadhunter-app "Lead Hunter: homeowner leads for roofing and window reps from public county records and hail reports. Android, English and Spanish." \
+            "https://shop.frantzmichaelsthilairevardman.com/apps/leadhunter" android kotlin sales-tools lead-generation roofing hail offline-first
+          set_repo frantzvardman26-max "Frantz Vardman: Android apps and games, a self-hosted VPN, Vindie News and the Frantz Vardman Shop" \
+            "https://shop.frantzmichaelsthilairevardman.com/" profile android indie-games privacy
+          set_repo frantzvardman26-max.github.io "Frantz Vardman's website: apps, games, asset protection and AceThe_Kid beats" \
+            "https://frantzvardman26-max.github.io/" website portfolio android indie-games

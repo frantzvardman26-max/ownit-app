@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Help, bug reports and ideas
+    url: https://shop.frantzmichaelsthilairevardman.com/support/
+    about: The fastest way to reach Frantz about any app or game.
+  - name: Report a security problem privately
+    url: https://shop.frantzmichaelsthilairevardman.com/support/
+    about: Please don't post security issues in public. See SECURITY.md.
+  - name: Join the beta
+    url: https://shop.frantzmichaelsthilairevardman.com/test/
+    about: Apply to test new apps before anyone else.

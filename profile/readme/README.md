@@ -11,7 +11,7 @@
 
 <br><br>
 
-<picture><source media="(prefers-color-scheme: light)" srcset="img/stats-light.svg"><img src="img/stats-dark.svg" alt="18 apps and games, 128 products and services, 205 assets tokenized, zero trackers" width="100%"></picture>
+<picture><source media="(prefers-color-scheme: light)" srcset="img/stats-light.svg"><img src="img/stats-dark.svg" alt="18 apps and games, 128 products and services, 205 works fingerprinted, zero trackers" width="100%"></picture>
 
 </div>
 
@@ -77,13 +77,26 @@ Everything I make follows the same rules:
 
 Original beats as **AceThe_Kid**, made with a beat engine I wrote myself: 808s, drums, melodies and chords synthesized from code, no samples or loops. One buyer per beat, every stem included. **[Hear the beats →](https://shop.frantzmichaelsthilairevardman.com/#beats)**
 
-## 🧰 How I build
+## 🧰 Engineering
 
 <p>
 <img src="img/tag-kotlin.svg" height="30" alt="Kotlin"> <img src="img/tag-android.svg" height="30" alt="Android"> <img src="img/tag-cloudflare.svg" height="30" alt="Cloudflare"> <img src="img/tag-python.svg" height="30" alt="Python"> <img src="img/tag-js.svg" height="30" alt="JavaScript"> <img src="img/tag-actions.svg" height="30" alt="GitHub Actions">
 </p>
 
-Built from my phone. Every change is tested by a robot on a private practice copy before it goes live.
+<p>
+<a href="https://github.com/frantzvardman26-max/ownit-app/actions/workflows/auto-build.yml"><img src="https://github.com/frantzvardman26-max/ownit-app/actions/workflows/auto-build.yml/badge.svg" alt="Auto build"></a>
+<a href="https://github.com/frantzvardman26-max/ownit-app/actions/workflows/prism-watch.yml"><img src="https://github.com/frantzvardman26-max/ownit-app/actions/workflows/prism-watch.yml/badge.svg" alt="Hourly game tests"></a>
+<a href="https://github.com/frantzvardman26-max/ownit-app/actions/workflows/smoke-test.yml"><img src="https://github.com/frantzvardman26-max/ownit-app/actions/workflows/smoke-test.yml/badge.svg" alt="Emulator smoke test"></a>
+<a href="https://github.com/frantzvardman26-max/ownit-app/actions/workflows/shop-verify.yml"><img src="https://github.com/frantzvardman26-max/ownit-app/actions/workflows/shop-verify.yml/badge.svg" alt="Shop deploy"></a>
+</p>
+
+- **One private codebase, built in the open.** Every app and game builds in GitHub Actions; only the changed ones rebuild, every hour.
+- **My own app store.** Free Lane installs and updates the apps, checking every download's fingerprint; an F-Droid library mirrors them.
+- **Tested by robots.** Every browser game is played with fresh random taps every hour, and published apps are installed and opened on an Android emulator.
+- **My own VPN server.** WireGuard with its own DNS and ad blocking, signed over-the-air updates, a self-healing watchdog and uptime checks.
+- **Edge backend, no trackers.** The shop runs on Cloudflare with passkey sign-in; originals stay encrypted in a vault, with nightly backups in two places.
+
+Built from my phone. Every change is tested on a private practice copy before it goes live.
 
 <picture><source media="(prefers-color-scheme: light)" srcset="img/divider-light.svg"><img src="img/divider-dark.svg" alt="" width="100%"></picture>
 
