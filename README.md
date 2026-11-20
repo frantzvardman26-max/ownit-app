@@ -5,7 +5,7 @@
 # Android apps and games by Frantz Vardman
 
 **Free with one account.** Sign in once at the shop and every app, update and purchase follows you. Private by default: no trackers, no ads from strangers.<br>
-Try the games in your browser first, no sign-up: **[Giants & Guns](https://shop.frantzmichaelsthilairevardman.com/giants/)** · **[Bombs & Bullion](https://shop.frantzmichaelsthilairevardman.com/play/)**
+Try the games in your browser first, no sign-up: **[Giants & Guns](https://shop.frantzmichaelsthilairevardman.com/giants/)** (now with Siege mode) · **[Bombs & Bullion](https://shop.frantzmichaelsthilairevardman.com/play/)** · **[Monkey Money](https://shop.frantzmichaelsthilairevardman.com/monkey/)** · **[Cave Hunt](https://shop.frantzmichaelsthilairevardman.com/cave/)**
 
 </div>
 
