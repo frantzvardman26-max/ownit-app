@@ -1,0 +1,14 @@
+name: Vindie VPN probe (server up? which version? codes only, address hidden)
+on: { workflow_dispatch: {} }
+permissions: { contents: read }
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with: { repository: frantzvardman26-max/3D, token: "${{ secrets.BUILD_TOKEN }}", sparse-checkout: .github/workflows/server-backup.yml, sparse-checkout-cone-mode: false }
+      - run: |
+          S=$(grep -oE 'SERVER: *[0-9.]+:[0-9]+' .github/workflows/server-backup.yml | head -1 | sed 's/SERVER: *//'); H=${S%:*}; echo "::add-mask::$S"; echo "::add-mask::$H"
+          for p in /health /api/plans; do code=$(curl -sk -o o.json -w '%{http_code}' --max-time 20 "https://$S$p" || echo 000)
+            echo "$p -> HTTP $code $(jq -c '{status, payments_live, slots, slots_open, plans: (.plans|length? // null), v8: (has("opens_at"))}' o.json 2>/dev/null)"; done
+          code=$(curl -sk -o /dev/null -w '%{http_code}' --max-time 20 -H 'Authorization: Bearer x' "https://$S/api/me" || echo 000); echo "/api/me (bad token) -> HTTP $code (401 = server answering normally)"
