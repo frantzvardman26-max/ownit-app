@@ -6,9 +6,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: |
-          K=b9b0291a9b5d8d4d1dcc0c120304d176
+          K=ad2f845146787c2bbb936796543ea9ab
           for ep in https://api.indexnow.org/indexnow https://www.bing.com/indexnow https://yandex.com/indexnow; do
-            for h in shop.frantzmichaelsthilairevardman.com fv-frantzvardmantrust.pages.dev; do
+            for h in shop.frantzmichaelsthilairevardman.com; do
               echo "=== $ep  $h (GET form)"; curl -s -o b.txt -w '%{http_code}\n' "$ep?url=https://$h/&key=$K&keyLocation=https://$h/$K.txt"; head -c 300 b.txt; echo
             done
           done
