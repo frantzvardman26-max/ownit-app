@@ -34,7 +34,7 @@ jobs:
         run: |
           sed -i '/aapt2FromMavenOverride/d' gradle.properties || true
           chmod +x gradlew
-          export APP_BUILD_NUMBER=$((GITHUB_RUN_NUMBER + 100))   # above the old private-repo builds (up to 12), or Android refuses the update
+          export APP_BUILD_NUMBER=$((GITHUB_RUN_NUMBER + 1000))   # above every older build (both workflows), or Android refuses the update
           for try in 1 2 3 4; do if ./gradlew -q :vindievpn:assembleDebug --no-daemon; then break; fi; [ $try = 4 ] && exit 1; sleep 45; done
           cp vindievpn/build/outputs/apk/debug/*.apk ../VindieVPN.apk; ls -la ../VindieVPN.apk
       - name: Keep the app on the private repo's vpn-apk branch (no public copy, no artifact)
@@ -43,3 +43,8 @@ jobs:
           D=$(mktemp -d); cp VindieVPN.apk "$D"/; cd "$D" && git init -q && git checkout -q -b vpn-apk && git add -A
           git -c user.name=ci -c user.email=ci@example.com commit -qm apk
           git push -qf "https://x-access-token:$T@github.com/frantzvardman26-max/3D.git" vpn-apk
+      - name: Save to the private app vault (Free Lane installs and updates it from there, signed-in owner and testers only)
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx --yes wrangler@4 r2 object put "fv-app-vault/build/VindieVPN.apk" --file VindieVPN.apk --remote >/dev/null 2>&1 && echo "Saved to the vault" || { echo "::error::Could not save to the vault"; exit 1; }
