@@ -14,6 +14,8 @@ jobs:
         run: |
           T=https://frantz-twin.pages.dev
           echo "1. practice shop ready?  $(curl -s "$T/api/vpn?check=1")"
+          echo "0. LIVE shop ready?  $(curl -s "https://shop.frantzmichaelsthilairevardman.com/api/vpn?check=1")"
+          echo "0b. LIVE plan button before Jan 1 (should send back to the VPN page): HTTP $(curl -s -o /dev/null -w '%{http_code} -> %{redirect_url}' "https://shop.frantzmichaelsthilairevardman.com/api/vpn?go=monthly&u=999")"
           echo "2. plan button (should send to Stripe test checkout): HTTP $(curl -s -o /dev/null -w '%{http_code} -> %{redirect_url}' "$T/api/vpn?go=monthly&u=999" | sed -E 's#(checkout.stripe.com/c/pay/)[^ ]*#\1[test session]#')"
           curl -s "$T/api/vpn?sub=$SUB" > r.json; echo "3. receipt for the test membership: $(jq -c '{plan, until, receipt_chars: (.receipt|length), error}' r.json)"
           curl -s "$T/api/license-key" > key.json
