@@ -1,0 +1,10 @@
+name: Vindie VPN YouTube ad test (does the in-app cleanup strip ads from real YouTube pages?)
+on: { workflow_dispatch: {} }
+permissions: { contents: read }
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - run: npm i --no-save playwright@1.48.2 && npx playwright install --with-deps chromium
+      - run: node .github/yt/test.js
