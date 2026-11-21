@@ -29,10 +29,9 @@ jobs:
           tar --exclude=update-key.enc -czf "$A/server-bundle.tgz" -C vpn VERSION control gateway
           openssl pkeyutl -sign -inkey "$K" -rawin -in "$A/server-bundle.tgz" -out "$A/server-bundle.sig"
           cp vpn/VERSION "$A/server-bundle.version"; rm -f "$K"; echo "server bundle version $(cat vpn/VERSION)"
-      - name: Use the app's fixed signing key, so a new build installs over the old app
-        run: mkdir -p ~/.android && cp android/vindievpn/signing/debug.keystore ~/.android/debug.keystore
       - name: Build the app
         working-directory: android
+        env: { APP_BUILD_NUMBER: "${{ github.run_number + 100 }}" }   # builds here must number above the old private-repo builds (up to 12), or Android refuses the update
         run: |
           sed -i '/aapt2FromMavenOverride/d' gradle.properties || true
           chmod +x gradlew
