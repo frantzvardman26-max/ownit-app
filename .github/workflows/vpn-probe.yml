@@ -10,7 +10,7 @@ jobs:
       - run: |
           S=$(grep -oE 'SERVER: *[0-9.]+:[0-9]+' .github/workflows/server-backup.yml | head -1 | sed 's/SERVER: *//'); H=${S%:*}; echo "::add-mask::$S"; echo "::add-mask::$H"
           for p in /health /api/plans; do code=$(curl -sk -o o.json -w '%{http_code}' --max-time 20 "https://$S$p" || echo 000)
-            echo "$p -> HTTP $code $(jq -c '{status, payments_live, slots, slots_open, plans: (.plans|length? // null), v8: (has("opens_at"))}' o.json 2>/dev/null)"; done
+            echo "$p -> HTTP $code $(jq -c '{status, payments_live, slots, slots_open, plans: (.plans|length? // null), v8: (has("opens_at")), v10: (has("open_signup_at"))}' o.json 2>/dev/null)"; done
           echo "address found: ${#S} characters"
           for port in 8443 80 22; do timeout 8 bash -c "echo > /dev/tcp/$H/$port" 2>/dev/null && echo "port $port: open" || echo "port $port: no answer"; done
           curl -sk -o /dev/null --max-time 15 "https://$S/health" 2> err.txt; echo "curl says: $(curl -sk -o /dev/null --max-time 15 -w '%{errormsg}' "https://$S/health" | sed "s/$H/[server]/g")"
