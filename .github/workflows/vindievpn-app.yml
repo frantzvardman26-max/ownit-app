@@ -31,10 +31,10 @@ jobs:
           cp vpn/VERSION "$A/server-bundle.version"; rm -f "$K"; echo "server bundle version $(cat vpn/VERSION)"
       - name: Build the app
         working-directory: android
-        env: { APP_BUILD_NUMBER: "${{ github.run_number + 100 }}" }   # builds here must number above the old private-repo builds (up to 12), or Android refuses the update
         run: |
           sed -i '/aapt2FromMavenOverride/d' gradle.properties || true
           chmod +x gradlew
+          export APP_BUILD_NUMBER=$((GITHUB_RUN_NUMBER + 100))   # above the old private-repo builds (up to 12), or Android refuses the update
           for try in 1 2 3 4; do if ./gradlew -q :vindievpn:assembleDebug --no-daemon; then break; fi; [ $try = 4 ] && exit 1; sleep 45; done
           cp vindievpn/build/outputs/apk/debug/*.apk ../VindieVPN.apk; ls -la ../VindieVPN.apk
       - name: Keep the app on the private repo's vpn-apk branch (no public copy, no artifact)
