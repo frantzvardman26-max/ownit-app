@@ -21,7 +21,7 @@ jobs:
           gh api "repos/frantzvardman26-max/3D/contents/shop/tools/sql/$F" -q .content | base64 -d > q.sql
           grep -qiE '\b(insert|update|delete|drop|alter|create|replace)\b' q.sql && { echo "read-only queries only"; exit 1; }
           echo "$PUB" | base64 -d > pub.pem
-          npx --yes wrangler@3 d1 execute shop-downloads --remote --json --file q.sql > out.json 2>/dev/null || { echo failed; exit 1; }
+          npx --yes wrangler@3 d1 execute shop-downloads --remote --json --command "$(tr "\n" " " < q.sql)" > out.json 2>/dev/null || { echo failed; exit 1; }
           openssl rand -out k.bin 32
           openssl enc -aes-256-cbc -pbkdf2 -iter 100000 -salt -in out.json -out out.enc -pass file:k.bin
           openssl pkeyutl -encrypt -pubin -inkey pub.pem -pkeyopt rsa_padding_mode:oaep -in k.bin -out k.enc
