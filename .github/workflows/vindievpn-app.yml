@@ -1,0 +1,44 @@
+name: Build Vindie VPN (app + signed server update; runs here for free minutes, files stay private)
+on: { workflow_dispatch: {} }
+permissions: { contents: read }
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          repository: frantzvardman26-max/3D   # the private code; this public repo only runs the build
+          token: ${{ secrets.BUILD_TOKEN }}
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 21 }
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/wrapper/dists
+            ~/.gradle/caches
+          key: gradle-vpn-${{ hashFiles('android/gradle/wrapper/gradle-wrapper.properties', 'android/gradle/libs.versions.toml', 'android/vindievpn/build.gradle.kts') }}
+          restore-keys: gradle-
+      - name: Server update bundle, signed with the update key (decrypted only inside this job, then deleted)
+        env: { PW: "${{ secrets.OWNIT_RELEASE_PASSWORD }}" }
+        run: |
+          K="$RUNNER_TEMP/update.pem"; ENC=vpn/gateway/update-key.enc
+          [ -f "$ENC" ] || { echo "::error::No update key in the private repo"; exit 1; }
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in "$ENC" -out "$K" -pass env:PW
+          openssl pkey -in "$K" -pubout | cmp - vpn/gateway/update.pub
+          A=android/vindievpn/src/main/assets; mkdir -p "$A"
+          tar --exclude=update-key.enc -czf "$A/server-bundle.tgz" -C vpn VERSION control gateway
+          openssl pkeyutl -sign -inkey "$K" -rawin -in "$A/server-bundle.tgz" -out "$A/server-bundle.sig"
+          cp vpn/VERSION "$A/server-bundle.version"; rm -f "$K"; echo "server bundle version $(cat vpn/VERSION)"
+      - name: Build the app
+        working-directory: android
+        run: |
+          sed -i '/aapt2FromMavenOverride/d' gradle.properties || true
+          chmod +x gradlew
+          for try in 1 2 3 4; do if ./gradlew -q :vindievpn:assembleDebug --no-daemon; then break; fi; [ $try = 4 ] && exit 1; sleep 45; done
+          cp vindievpn/build/outputs/apk/debug/*.apk ../VindieVPN.apk; ls -la ../VindieVPN.apk
+      - name: Keep the app on the private repo's vpn-apk branch (no public copy, no artifact)
+        env: { T: "${{ secrets.BUILD_TOKEN }}" }
+        run: |
+          D=$(mktemp -d); cp VindieVPN.apk "$D"/; cd "$D" && git init -q && git checkout -q -b vpn-apk && git add -A
+          git -c user.name=ci -c user.email=ci@example.com commit -qm apk
+          git push -qf "https://x-access-token:$T@github.com/frantzvardman26-max/3D.git" vpn-apk

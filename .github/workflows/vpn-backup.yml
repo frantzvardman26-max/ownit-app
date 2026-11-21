@@ -1,0 +1,23 @@
+name: Copy the nightly shop backup to the Vindie VPN server (runs here for free minutes; address hidden, file encrypted)
+on:
+  schedule: [{cron: '41 12 * * *'}]
+  workflow_dispatch:
+permissions: { contents: read }
+jobs:
+  copy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with: { repository: frantzvardman26-max/3D, token: "${{ secrets.BUILD_TOKEN }}", sparse-checkout: "vault/db\nvpn/gateway\n.github/workflows/server-backup.yml", sparse-checkout-cone-mode: false }
+      - name: Sign and send the newest backup
+        env: { PW: "${{ secrets.OWNIT_RELEASE_PASSWORD }}" }
+        run: |
+          SERVER=$(grep -oE 'SERVER: *[0-9.]+:[0-9]+' .github/workflows/server-backup.yml | head -1 | sed 's/SERVER: *//'); echo "::add-mask::$SERVER"; echo "::add-mask::${SERVER%:*}"
+          F=$(ls vault/db/*-shop-db.sql.age | sort | tail -1); N=$(basename "$F"); echo "newest backup: $(stat -c %s "$F") bytes"
+          K="$RUNNER_TEMP/k.pem"; openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in vpn/gateway/update-key.enc -out "$K" -pass env:PW
+          printf '%s\n%s' "$N" "$(sha256sum "$F" | cut -d' ' -f1)" > "$RUNNER_TEMP/m"
+          S=$(openssl pkeyutl -sign -inkey "$K" -rawin -in "$RUNNER_TEMP/m" | base64 -w0); rm -f "$K"
+          code=$(curl -sk -o /dev/null -w '%{http_code}' -X POST "https://$SERVER/api/backup" -H "X-Name: $N" -H "X-Sig: $S" -H 'Content-Type: application/octet-stream' --data-binary @"$F" --max-time 300 || echo 000)
+          echo "server said HTTP $code"
+          if [ "$code" = 000 ]; then echo "::warning::The Vindie VPN server didn't answer. Restart it from the Vultr dashboard."; exit 0; fi
+          [ "$code" = 200 ]
