@@ -1,0 +1,39 @@
+name: Vindie VPN dry run (practice shop, Stripe test mode -> signed receipt -> a copy of the server code grants the time)
+on:
+  workflow_dispatch:
+    inputs:
+      sub: {description: 'Stripe TEST subscription id (sub_...)', required: true}
+permissions: { contents: read }
+jobs:
+  dryrun:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with: { repository: frantzvardman26-max/3D, token: "${{ secrets.BUILD_TOKEN }}", sparse-checkout: vpn, sparse-checkout-cone-mode: false }
+      - env: { SUB: "${{ inputs.sub }}" }
+        run: |
+          T=https://frantz-twin.pages.dev
+          echo "1. practice shop ready?  $(curl -s "$T/api/vpn?check=1")"
+          echo "2. plan button (should send to Stripe test checkout): HTTP $(curl -s -o /dev/null -w '%{http_code} -> %{redirect_url}' "$T/api/vpn?go=monthly&u=999" | sed -E 's#(checkout.stripe.com/c/pay/)[^ ]*#\1[test session]#')"
+          curl -s "$T/api/vpn?sub=$SUB" > r.json; echo "3. receipt for the test membership: $(jq -c '{plan, until, receipt_chars: (.receipt|length), error}' r.json)"
+          curl -s "$T/api/license-key" > key.json
+          [[ "$SUB" =~ ^sub_[A-Za-z0-9]+$ ]] || { echo bad sub; exit 1; }
+          python3 - <<'PY'
+          import json, os, sys, tempfile
+          os.environ.update(VPN_DB=os.path.join(tempfile.mkdtemp(), 't.sqlite3'), WG_DRY='1', VPN_PUBLIC_HOST='203.0.113.5', VPN_WG_PUBKEY='a'*43+'=', PAYMENTS_LIVE='1', OPEN_SIGNUP='1')
+          sys.path.insert(0, 'vpn/control'); import app
+          app.init_db(); app._shop_key['jwk'] = json.load(open('key.json'))
+          rec = json.load(open('r.json'))['receipt']
+          r = app.verify_receipt(rec); print('4. server copy checks the shop signature: ok · plan', r['plan'], '· user', r['u'])
+          with app.db() as c:
+              uid = c.execute("INSERT INTO users (email,password_hash,role,created_at) VALUES ('dry@example.com','x','customer',?)", (app.iso(app.now()),)).lastrowid
+              end = app.grant_until(c, uid, r['plan'], r['until'], r['sub'])
+          print('5. membership granted until', app.iso(end))
+          with app.db() as c: n = c.execute('SELECT COUNT(*) FROM subscriptions WHERE external_id=?', (r['sub'],)).fetchone()[0]
+          with app.db() as c: app.grant_until(c, uid, r['plan'], r['until'], r['sub'])
+          with app.db() as c: n2 = c.execute('SELECT COUNT(*) FROM subscriptions WHERE external_id=?', (r['sub'],)).fetchone()[0]
+          print('6. same receipt twice adds no extra time:', 'ok' if n == n2 else 'FAILED')
+          bad = rec[:-4] + ('AAAA' if not rec.endswith('AAAA') else 'BBBB')
+          try: app.verify_receipt(bad); print('7. tampered receipt: ACCEPTED (bad)')
+          except Exception as e: print('7. tampered receipt refused: ok')
+          PY
