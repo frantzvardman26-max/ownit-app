@@ -1,0 +1,35 @@
+[
+ {
+  "packageName": "com.ownit.app",
+  "name": "Own It",
+  "summary": "Music contracts, royalties and business tools for artists",
+  "authorName": "Frantz Vardman",
+  "apk": "https://shop.frantzmichaelsthilairevardman.com/r/OwnIt.apk",
+  "sha256": "ae89e164dc250f9955ea90647cce1de8822080cc1f6d31ac71899319986977d4",
+  "size": 24093066,
+  "versionCode": 229,
+  "versionName": "2.129",
+  "minSdkVersion": 26,
+  "icon": "https://shop.frantzmichaelsthilairevardman.com/img/app/ownit.png",
+  "screenshots": []
+ },
+ {
+  "packageName": "com.frantzvardman.rexvoice",
+  "name": "Rex Voice",
+  "summary": "Clone your voice on your phone, with consent",
+  "authorName": "Frantz Vardman",
+  "apk": "https://shop.frantzmichaelsthilairevardman.com/r/RexVoice.apk",
+  "sha256": "73ea3662120f5af2b26ee924e5a3a816fc0f5a903844f3e7e71883fef8e11c24",
+  "size": 231787269,
+  "versionCode": 227,
+  "versionName": "1.127",
+  "minSdkVersion": 26,
+  "icon": "https://shop.frantzmichaelsthilairevardman.com/img/app/rexvoice.png",
+  "screenshots": [
+   "https://shop.frantzmichaelsthilairevardman.com/img/app/shots/rexvoice-1.webp",
+   "https://shop.frantzmichaelsthilairevardman.com/img/app/shots/rexvoice-2.webp",
+   "https://shop.frantzmichaelsthilairevardman.com/img/app/shots/rexvoice-3.webp",
+   "https://shop.frantzmichaelsthilairevardman.com/img/app/shots/rexvoice-4.webp"
+  ]
+ }
+]
