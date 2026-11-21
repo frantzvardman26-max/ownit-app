@@ -26,6 +26,9 @@ jobs:
       WEEKS: ${{ inputs.weeks }}
     steps:
       - uses: actions/checkout@v5
+      - name: Fetch the helper from the private repo (no source kept in this public repo)
+        env: { GH_TOKEN: "${{ secrets.BUILD_TOKEN }}" }
+        run: mkdir -p .github/yt && gh api "repos/frantzvardman26-max/3D/contents/ci/helpers/vindie_comp.py" -q .content | base64 -d > .github/vindie_comp.py
       - name: Start it
         run: |
           pip install --quiet pillow

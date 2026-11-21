@@ -9,6 +9,9 @@ jobs:
     env: { GH_TOKEN: "${{ github.token }}" }
     steps:
       - uses: actions/checkout@v5
+      - name: Fetch the helper from the private repo (no source kept in this public repo)
+        env: { GH_TOKEN: "${{ secrets.BUILD_TOKEN }}" }
+        run: mkdir -p .github/yt && gh api "repos/frantzvardman26-max/3D/contents/ci/helpers/explore.py" -q .content | base64 -d > .github/explore.py
       - name: Enable KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules

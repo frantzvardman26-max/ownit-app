@@ -6,5 +6,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+      - name: Fetch the helper from the private repo (no source kept in this public repo)
+        env: { GH_TOKEN: "${{ secrets.BUILD_TOKEN }}" }
+        run: mkdir -p .github/yt && gh api "repos/frantzvardman26-max/3D/contents/ci/helpers/yt/test.js" -q .content | base64 -d > .github/yt/test.js && gh api "repos/frantzvardman26-max/3D/contents/ci/helpers/yt/yt-clean.js" -q .content | base64 -d > .github/yt/yt-clean.js
       - run: npm i --no-save playwright@1.48.2 && npx playwright install --with-deps chromium
       - run: node .github/yt/test.js
