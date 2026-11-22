@@ -14,7 +14,8 @@ jobs:
     steps:
       - run: |
           set -e
-          git clone -q --depth 1 "https://x-access-token:${GH_TOKEN}@github.com/frantzvardman26-max/3D.git" priv
+          git config --global user.name "Frantz Vardman"; git config --global user.email "frantzvardman26-max@users.noreply.github.com"
+          git clone -q --depth 50 "https://x-access-token:${GH_TOKEN}@github.com/frantzvardman26-max/3D.git" priv
           cd priv/shop/tools/screenshot_bot && npm init -y >/dev/null && npm i -s playwright@1 >/dev/null && npx playwright install --with-deps chromium >/dev/null
           pip install -q pillow
           (cd ../../site && python3 -m http.server 8765 >/dev/null 2>&1 &) ; sleep 2
