@@ -1,0 +1,62 @@
+name: Build Vindie ID
+on:
+  workflow_dispatch:
+# Built here because GitHub Actions is free for public repositories. The code comes from the private repo.
+# Not published anywhere public: the finished app goes only to the private app vault (owner download, not in beta yet).
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          repository: frantzvardman26-max/3D
+          token: ${{ secrets.BUILD_TOKEN }}
+      - name: Build number
+        run: echo "APP_BUILD_NUMBER=$GITHUB_RUN_NUMBER" >> "$GITHUB_ENV"
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Keep Gradle between builds
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/wrapper/dists
+            ~/.gradle/caches
+          key: gradle-vindieid-${{ hashFiles('android/gradle/wrapper/gradle-wrapper.properties', 'android/gradle/libs.versions.toml', 'android/vindieid/build.gradle.kts') }}
+          restore-keys: gradle-
+      - name: Build Vindie ID
+        working-directory: android
+        run: |
+          sed -i '/aapt2FromMavenOverride/d' gradle.properties || true
+          chmod +x gradlew
+          for try in 1 2 3 4; do
+            if ./gradlew :vindieid:assembleDebug --no-daemon; then break; fi
+            if [ $try = 4 ]; then exit 1; fi
+            echo "Build attempt $try failed, waiting and trying again..."; sleep 45
+          done
+          cp vindieid/build/outputs/apk/debug/vindieid-debug.apk ../VindieID.apk
+          ls -la ../VindieID.apk
+      - name: Tests (simulated phone)
+        working-directory: android
+        run: ./gradlew :vindieid:testDebugUnitTest --no-daemon
+      - name: Privacy check (no internet at all; NFC only for the passport chip)
+        run: |
+          # Why: the privacy policy says the only internet use is asking the shop for the newest version. This fails the build if anything more is ever added.
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          for A in VindieID.apk; do [ -f "$A" ] || continue; PERMS=$("$BT/aapt2" dump permissions $A); echo "$A: $PERMS"
+            if echo "$PERMS" | grep -q "permission.INTERNET"; then echo "::error::Vindie ID must never have internet access"; exit 1; fi
+            if echo "$PERMS" | grep -Eq "LOCATION|CONTACTS|RECORD_AUDIO|SMS|CALL_LOG|READ_PHONE|GET_ACCOUNTS|READ_EXTERNAL|READ_MEDIA|BLUETOOTH_SCAN|BODY_SENSORS"; then echo "::error::A sensitive permission was found in $A"; exit 1; fi
+          done
+          echo "OK: no internet permission"
+      - name: Save to the private app vault (owner download only)
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          npx --yes wrangler@4 r2 object put "fv-app-vault/build/VindieID.apk" --file VindieID.apk --remote >/dev/null 2>&1 && echo "Saved to the private app vault" || { echo "::error::Could not save to the private app vault"; exit 1; }
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1); VC=$("$BT/aapt2" dump badging VindieID.apk | sed -n "s/.*versionCode='\([0-9]*\)'.*/\1/p" | head -1)
+          [ -n "$VC" ] && echo "{\"v\":$VC}" > VindieID.json && npx --yes wrangler@4 r2 object put "fv-app-vault/build/VindieID.json" --file VindieID.json --content-type application/json --remote >/dev/null 2>&1 && echo "In-app updates now offer build $VC" || echo "::warning::Could not publish the version for in-app updates"
+          rm -f VindieID.apk
