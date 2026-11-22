@@ -46,7 +46,7 @@ jobs:
         working-directory: android
         run: |
           chmod +x gradlew
-          ./gradlew :panel:testDebugUnitTest --no-daemon
+          for i in 1 2 3; do ./gradlew :panel:testDebugUnitTest --no-daemon && break; [ $i = 3 ] && exit 1; echo "Tests could not run (often a download limit); trying again in 90s"; sleep 90; done
       - name: Share screen-test screenshots for review (branch cp-screens)
         if: always()
         run: |

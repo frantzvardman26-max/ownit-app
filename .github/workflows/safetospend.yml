@@ -41,7 +41,7 @@ jobs:
         run: |
           sed -i '/aapt2FromMavenOverride/d' gradle.properties || true
           chmod +x gradlew
-          ./gradlew :safetospend:testDebugUnitTest --no-daemon
+          for i in 1 2 3; do ./gradlew :safetospend:testDebugUnitTest --no-daemon && break; [ $i = 3 ] && exit 1; echo "Tests could not run (often a download limit); trying again in 90s"; sleep 90; done
       - name: Share screen-test screenshots for review (branch sts-screens)
         if: always()
         run: |
