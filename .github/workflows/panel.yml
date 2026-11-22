@@ -26,6 +26,7 @@ jobs:
           path: |
             ~/.gradle/wrapper/dists
             ~/.gradle/caches
+            ~/.m2/repository/org/robolectric
           key: gradle-cp-${{ hashFiles('android/gradle/wrapper/gradle-wrapper.properties', 'android/gradle/libs.versions.toml', 'android/panel/build.gradle.kts') }}
           restore-keys: gradle-
       - name: Build Control Panel

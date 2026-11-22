@@ -33,6 +33,7 @@ jobs:
           path: |
             ~/.gradle/wrapper/dists
             ~/.gradle/caches
+            ~/.m2/repository/org/robolectric
           key: gradle-sts-${{ hashFiles('android/gradle/wrapper/gradle-wrapper.properties', 'android/gradle/libs.versions.toml', 'android/safetospend/build.gradle.kts') }}
           restore-keys: gradle-
       - name: Tests (money math + screens on a simulated phone)

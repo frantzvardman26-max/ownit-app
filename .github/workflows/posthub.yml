@@ -26,6 +26,7 @@ jobs:
           path: |
             ~/.gradle/wrapper/dists
             ~/.gradle/caches
+            ~/.m2/repository/org/robolectric
           key: gradle-ph-${{ hashFiles('android/gradle/wrapper/gradle-wrapper.properties', 'android/gradle/libs.versions.toml', 'android/posthub/build.gradle.kts') }}
           restore-keys: gradle-
       - name: Build Post Hub

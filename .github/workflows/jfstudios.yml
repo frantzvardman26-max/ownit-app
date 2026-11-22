@@ -29,6 +29,7 @@ jobs:
           path: |
             ~/.gradle/wrapper/dists
             ~/.gradle/caches
+            ~/.m2/repository/org/robolectric
           key: gradle-jfs-${{ hashFiles('android/gradle/wrapper/gradle-wrapper.properties', 'android/gradle/libs.versions.toml', 'android/jfstudios/build.gradle.kts') }}
           restore-keys: gradle-
       - name: Build J & F Studios

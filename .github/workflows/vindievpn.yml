@@ -28,6 +28,7 @@ jobs:
           path: |
             ~/.gradle/wrapper/dists
             ~/.gradle/caches
+            ~/.m2/repository/org/robolectric
           key: gradle-vv-${{ hashFiles('android/gradle/wrapper/gradle-wrapper.properties', 'android/gradle/libs.versions.toml', 'android/vindievpn/build.gradle.kts') }}
           restore-keys: gradle-
       - name: Control plane tests (accounts, devices, payments, gateway allow-list)

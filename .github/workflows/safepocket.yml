@@ -31,6 +31,7 @@ jobs:
           path: |
             ~/.gradle/wrapper/dists
             ~/.gradle/caches
+            ~/.m2/repository/org/robolectric
           key: gradle-sp-${{ hashFiles('android/gradle/wrapper/gradle-wrapper.properties', 'android/gradle/libs.versions.toml', 'android/safepocket/build.gradle.kts') }}
           restore-keys: gradle-
       - name: Build Safe Pocket
