@@ -131,6 +131,10 @@ jobs:
           shots com.frantzvardman.reclaim rc-screens "rc-1-learn.png rc-2-log.png rc-4-make.png rc-5-letter.png rc-6-help.png"
           shots com.frantzvardman.rexvoice rv-screens "rv-1-record.png rv-4-vault.png rv-5-narrator.png rv-3-consent.png"
           shots com.safetospend.app sts-screens "normal_1_home.png normal_2_activity.png normal_3_bills.png"
+          # Store-quality listing images from the screenshot bot replace the raw test captures where they exist
+          for d in ../shop/screens/*/; do [ -d "$d" ] || continue; P=$(basename "$d"); ls "$d"*.png >/dev/null 2>&1 || continue
+            mkdir -p "metadata/$P/en-US/phoneScreenshots"; rm -f "metadata/$P/en-US/phoneScreenshots/"*.png
+            for f in "$d"*.png; do cp "$f" "metadata/$P/en-US/phoneScreenshots/bot-$(basename "$f")"; done; done
           find metadata -name '*.png' | sort
       - name: Build and sign the library
         env:
