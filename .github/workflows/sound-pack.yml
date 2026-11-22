@@ -18,7 +18,7 @@ jobs:
           for e in $PACKS; do
             p=${e%%=*}; url=${e#*=}
             case "$p" in *[!a-z0-9-]*|"") echo "bad name $p"; exit 1;; esac
-            echo "$url" | grep -qE '^https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/archive/[0-9a-f]{40}\.zip$' || { echo "only pinned GitHub archives: $url"; exit 1; }
+            echo "$url" | grep -qE '^https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/archive/([0-9a-f]{40}|refs/heads/[A-Za-z0-9_-]+)\.zip$' || { echo "only pinned GitHub archives: $url"; exit 1; }
             echo "$p <- $url"; curl -fsSL "$url" -o "$p.zip"; sha256sum "$p.zip"
             rm -rf "x-$p"; mkdir "x-$p"; unzip -q "$p.zip" -d "x-$p"
             lic=$(find "x-$p" -iname 'license*' -type f | head -1); [ -n "$lic" ] || { echo "no license file in $p"; find "x-$p" -maxdepth 3 | head -30; exit 1; }
