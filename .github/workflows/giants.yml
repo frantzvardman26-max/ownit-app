@@ -14,8 +14,9 @@ jobs:
         with:
           repository: frantzvardman26-max/3D   # the private code; this public repo only runs the build (free minutes)
           token: ${{ secrets.BUILD_TOKEN }}
-      - name: Guard - every script parses and every menu opens without a crash
+      - name: Guard - copy the web game into the app, then every script must parse and every menu must open without a crash
         run: |
+          python3 shop/tools/sync_games.py giants
           node ci/helpers/jscheck.js
           npm i --no-save --silent playwright@1.63.0 && npx playwright install --with-deps chromium > /dev/null
           node ci/helpers/gamesmoke.js giants

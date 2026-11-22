@@ -1,0 +1,31 @@
+name: Nightly game check (the live games, every night)
+# Opens every live game in a headless phone browser and taps every menu two screens deep. If anything crashes, the
+# owner gets one alert in the Master Panel (game name and the error, nothing else). The check code lives in the private repo.
+on:
+  schedule:
+    - cron: '17 11 * * *'   # 3:17 am Pacific
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          repository: frantzvardman26-max/3D
+          token: ${{ secrets.BUILD_TOKEN }}
+          sparse-checkout: ci/helpers
+      - name: Play every live game
+        id: smoke
+        run: |
+          cd ci/helpers && npm i --no-save --silent playwright@1.63.0 && npx playwright install --with-deps chromium > /dev/null
+          SMOKE_BASE=https://shop.frantzmichaelsthilairevardman.com SMOKE_SUMMARY=summary.txt node gamesmoke.js && echo "ok=1" >> "$GITHUB_OUTPUT" || echo "ok=0" >> "$GITHUB_OUTPUT"
+      - name: Alert the Master Panel if a game crashed
+        if: steps.smoke.outputs.ok == '0'
+        run: |
+          s=$(head -c 250 ci/helpers/summary.txt | tr -d "\r\n" | sed "s/'/''/g"); [ -n "$s" ] || s="the check could not run"
+          npx --yes wrangler@3 d1 execute shop-downloads --remote --command "CREATE TABLE IF NOT EXISTS owner_alerts (id INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT, title TEXT, message TEXT, tags TEXT, click TEXT, seen INTEGER DEFAULT 0); INSERT INTO owner_alerts (at, title, message, tags, click) VALUES (strftime('%Y-%m-%dT%H:%M:%fZ','now'), 'Nightly game check: a game crashed', 'Crashed: $s', 'warning', 'https://shop.frantzmichaelsthilairevardman.com/portfolio');" > out.txt 2>&1 && echo "alert sent" || { grep -iE "error" out.txt | head -3; exit 1; }
+          exit 1   # also mark the run red
