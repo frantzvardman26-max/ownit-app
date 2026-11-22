@@ -1,0 +1,18 @@
+name: Feedback digest (every 6 hours)
+# Runs a private SQL file that leaves the owner one alert when new feedback arrived in the last 6 hours (and the digest is on).
+on:
+  schedule:
+    - cron: '7 */6 * * *'
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      GH_TOKEN: ${{ secrets.BUILD_TOKEN }}
+    steps:
+      - run: |
+          gh api "repos/frantzvardman26-max/3D/contents/shop/tools/sql/feedback-digest.sql" -q .content | base64 -d > run.sql
+          npx --yes wrangler@3 d1 execute shop-downloads --remote --file run.sql > out.txt 2>&1 && echo "digest checked" || { echo "failed"; grep -iE "error" out.txt | head -3 | cut -c1-200; exit 1; }
