@@ -13,7 +13,7 @@ jobs:
           for u in $URLS; do
             case "$u" in https://*) ;; *) echo "skip $u"; continue;; esac
             echo "=== $u"
-            curl -s -o body.bin -D head.txt -A "Mozilla/5.0 (compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm)" --max-time 20 "$u" || true
-            head -1 head.txt; grep -iE '^(content-type|location|cf-mitigated|server|content-length):' head.txt
+            curl -sS -o body.bin -D head.txt -A "Mozilla/5.0 (compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm)" --max-time 20 "$u" || true
+            head -1 head.txt || true; grep -iE '^(content-type|location|cf-mitigated|server|content-length):' head.txt || true
             echo "body: $(head -c 120 body.bin | tr -d '\r' | tr '\n' ' ')"
           done
