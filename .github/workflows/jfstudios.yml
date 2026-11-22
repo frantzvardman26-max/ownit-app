@@ -4,7 +4,7 @@ on:
 # Built here (public repo = free build minutes); the code comes from the private repo. The finished app goes to the
 # private app vault, plus a 1-day build copy so the owner can grab it.
 permissions:
-  contents: read
+  contents: write
   actions: write
 concurrency:
   group: jfstudios
@@ -44,6 +44,19 @@ jobs:
           done
           cp jfstudios/build/outputs/apk/debug/jfstudios-debug.apk ../JFStudios.apk
           ls -la ../JFStudios.apk
+      - name: Store screenshots (screen test on a simulated phone)
+        working-directory: android
+        continue-on-error: true   # a screenshot problem never blocks the app itself
+        run: for i in 1 2 3; do ./gradlew :jfstudios:testDebugUnitTest --no-daemon && exit 0; echo "Tests could not run (often a download limit); trying again in 90s"; sleep 90; done; exit 1
+      - name: Share screen-test screenshots (branch jf-screens)
+        if: always()
+        run: |
+          D=android/jfstudios/build/screens
+          [ -d "$D" ] || { echo "No screenshots"; exit 0; }
+          T=$(mktemp -d); cp "$D"/*.png "$T"/ 2>/dev/null || true; ls "$T" | grep -q . || exit 0
+          cd "$T" && git init -q && git checkout -q -b jf-screens && git add -A
+          git -c user.name=ci -c user.email=ci@example.com commit -qm "screens"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" jf-screens || echo "::warning::Couldn't push screenshots"
       - name: Save to the private app vault
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
