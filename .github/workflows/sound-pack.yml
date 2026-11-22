@@ -4,7 +4,7 @@ name: Fetch a CC0 sound pack (Kenney) into the private repo
 on:
   workflow_dispatch:
     inputs:
-      packs: {description: 'kenney.nl asset slugs, space separated', required: true, default: 'rpg-audio impact-sounds interface-sounds'}
+      packs: {description: 'name=pinned GitHub archive URL, space separated', required: true, default: ''}
 permissions: {contents: read}
 jobs:
   fetch:
@@ -14,18 +14,18 @@ jobs:
       - run: |
           set -e
           git clone -q --depth 1 "https://x-access-token:${GH_TOKEN}@github.com/frantzvardman26-max/3D.git" priv
-          for p in $PACKS; do
-            case "$p" in *[!a-z0-9-]*) echo "bad slug $p"; exit 1;; esac
-            page=$(curl -fsSL "https://kenney.nl/assets/$p")
-            url=$(printf '%s' "$page" | grep -oE 'https://kenney\.nl/media/pages/assets/[^"]+\.zip' | head -1)
-            [ -n "$url" ] || { echo "no zip link for $p"; exit 1; }
+          # each entry: name=https://github.com/<owner>/<repo>/archive/<commit>.zip (a fixed commit, so the files can't change under us)
+          for e in $PACKS; do
+            p=${e%%=*}; url=${e#*=}
+            case "$p" in *[!a-z0-9-]*|"") echo "bad name $p"; exit 1;; esac
+            echo "$url" | grep -qE '^https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/archive/[0-9a-f]{40}\.zip$' || { echo "only pinned GitHub archives: $url"; exit 1; }
             echo "$p <- $url"; curl -fsSL "$url" -o "$p.zip"; sha256sum "$p.zip"
             rm -rf "x-$p"; mkdir "x-$p"; unzip -q "$p.zip" -d "x-$p"
-            lic=$(find "x-$p" -iname 'license*.txt' | head -1); [ -n "$lic" ] || { echo "no license file in $p"; exit 1; }
+            lic=$(find "x-$p" -iname 'license*' -type f | head -1); [ -n "$lic" ] || { echo "no license file in $p"; find "x-$p" -maxdepth 3 | head -30; exit 1; }
             grep -qiE 'CC0|creative commons zero|public domain' "$lic" || { echo "$p is not CC0, skipped"; cat "$lic"; exit 1; }
             d="priv/shop/assets-src/sfx/kenney/$p"; rm -rf "$d"; mkdir -p "$d"
             find "x-$p" -type f \( -iname '*.ogg' -o -iname '*.wav' -o -iname '*.mp3' \) -exec cp {} "$d/" \;
-            cp "$lic" "$d/License.txt"; echo "source: $url" > "$d/SOURCE.txt"; ls "$d" | wc -l
+            cp "$lic" "$d/License.txt"; echo "source: $url (port of the kenney.nl pack, CC0)" > "$d/SOURCE.txt"; echo "files: $(ls "$d" | wc -l)"; ls "$d" | tr '\n' ' '; echo
           done
           cd priv; git add shop/assets-src/sfx
           git -c user.name="Frantz Vardman" -c user.email="frantzvardman26-max@users.noreply.github.com" commit -q -m "Sound effects: Kenney CC0 packs ($PACKS), license kept beside the files" || { echo nothing new; exit 0; }
