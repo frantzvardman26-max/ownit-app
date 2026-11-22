@@ -32,7 +32,7 @@ jobs:
             ~/.gradle/wrapper/dists
             ~/.gradle/caches
             ~/.m2/repository/org/robolectric
-          key: gradle-ownit-${{ hashFiles('android/gradle/wrapper/gradle-wrapper.properties', 'android/gradle/libs.versions.toml', 'android/ownit/build.gradle.kts') }}
+          key: gradle-ownit-${{ hashFiles('android/gradle/wrapper/gradle-wrapper.properties', 'android/gradle/libs.versions.toml', 'android/ownit/build.gradle.kts') }}-r1
           restore-keys: gradle-
       - name: Build Own It
         working-directory: android

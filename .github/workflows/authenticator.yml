@@ -26,7 +26,7 @@ jobs:
             ~/.gradle/wrapper/dists
             ~/.gradle/caches
             ~/.m2/repository/org/robolectric
-          key: gradle-authenticator-${{ hashFiles('android/gradle/wrapper/gradle-wrapper.properties', 'android/gradle/libs.versions.toml', 'android/authenticator/build.gradle.kts') }}
+          key: gradle-authenticator-${{ hashFiles('android/gradle/wrapper/gradle-wrapper.properties', 'android/gradle/libs.versions.toml', 'android/authenticator/build.gradle.kts') }}-r1
           restore-keys: gradle-
       - name: Build Vindie Authenticator
         working-directory: android

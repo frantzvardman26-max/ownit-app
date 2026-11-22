@@ -32,7 +32,7 @@ jobs:
             ~/.gradle/wrapper/dists
             ~/.gradle/caches
             ~/.m2/repository/org/robolectric
-          key: gradle-pb-${{ hashFiles('android/gradle/wrapper/gradle-wrapper.properties', 'android/gradle/libs.versions.toml', 'android/purebeats/build.gradle.kts') }}
+          key: gradle-pb-${{ hashFiles('android/gradle/wrapper/gradle-wrapper.properties', 'android/gradle/libs.versions.toml', 'android/purebeats/build.gradle.kts') }}-r1
           restore-keys: gradle-
       - name: Build Pure Beats
         working-directory: android

@@ -26,7 +26,7 @@ jobs:
             ~/.gradle/wrapper/dists
             ~/.gradle/caches
             ~/.m2/repository/org/robolectric
-          key: gradle-monkey-${{ hashFiles('android/gradle/wrapper/gradle-wrapper.properties', 'android/gradle/libs.versions.toml', 'android/monkey/build.gradle.kts') }}
+          key: gradle-monkey-${{ hashFiles('android/gradle/wrapper/gradle-wrapper.properties', 'android/gradle/libs.versions.toml', 'android/monkey/build.gradle.kts') }}-r1
           restore-keys: gradle-
       - name: Build Monkey Money
         working-directory: android

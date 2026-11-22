@@ -29,7 +29,7 @@ jobs:
             ~/.gradle/wrapper/dists
             ~/.gradle/caches
             ~/.m2/repository/org/robolectric
-          key: gradle-vv-${{ hashFiles('android/gradle/wrapper/gradle-wrapper.properties', 'android/gradle/libs.versions.toml', 'android/vindievpn/build.gradle.kts') }}
+          key: gradle-vv-${{ hashFiles('android/gradle/wrapper/gradle-wrapper.properties', 'android/gradle/libs.versions.toml', 'android/vindievpn/build.gradle.kts') }}-r1
           restore-keys: gradle-
       - name: Control plane tests (accounts, devices, payments, gateway allow-list)
         run: python3 vpn/tests/test_control.py

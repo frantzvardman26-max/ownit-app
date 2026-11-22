@@ -32,7 +32,7 @@ jobs:
             ~/.gradle/wrapper/dists
             ~/.gradle/caches
             ~/.m2/repository/org/robolectric
-          key: gradle-cr-${{ hashFiles('android/gradle/wrapper/gradle-wrapper.properties', 'android/gradle/libs.versions.toml', 'android/crownrush/build.gradle.kts') }}
+          key: gradle-cr-${{ hashFiles('android/gradle/wrapper/gradle-wrapper.properties', 'android/gradle/libs.versions.toml', 'android/crownrush/build.gradle.kts') }}-r1
           restore-keys: gradle-
       - name: Build Bombs & Bullion
         working-directory: android

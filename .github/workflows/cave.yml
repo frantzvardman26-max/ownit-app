@@ -26,7 +26,7 @@ jobs:
             ~/.gradle/wrapper/dists
             ~/.gradle/caches
             ~/.m2/repository/org/robolectric
-          key: gradle-cave-${{ hashFiles('android/gradle/wrapper/gradle-wrapper.properties', 'android/gradle/libs.versions.toml', 'android/cave/build.gradle.kts') }}
+          key: gradle-cave-${{ hashFiles('android/gradle/wrapper/gradle-wrapper.properties', 'android/gradle/libs.versions.toml', 'android/cave/build.gradle.kts') }}-r1
           restore-keys: gradle-
       - name: Build Cave Hunt
         working-directory: android

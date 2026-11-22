@@ -32,7 +32,7 @@ jobs:
             ~/.gradle/wrapper/dists
             ~/.gradle/caches
             ~/.m2/repository/org/robolectric
-          key: gradle-rv-${{ hashFiles('android/gradle/wrapper/gradle-wrapper.properties', 'android/gradle/libs.versions.toml', 'android/rexvoice/build.gradle.kts') }}
+          key: gradle-rv-${{ hashFiles('android/gradle/wrapper/gradle-wrapper.properties', 'android/gradle/libs.versions.toml', 'android/rexvoice/build.gradle.kts') }}-r1
           restore-keys: gradle-
       - name: On-device voice engine (sherpa-onnx native code + Pocket TTS model)
         env:

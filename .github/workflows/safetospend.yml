@@ -34,7 +34,7 @@ jobs:
             ~/.gradle/wrapper/dists
             ~/.gradle/caches
             ~/.m2/repository/org/robolectric
-          key: gradle-sts-${{ hashFiles('android/gradle/wrapper/gradle-wrapper.properties', 'android/gradle/libs.versions.toml', 'android/safetospend/build.gradle.kts') }}
+          key: gradle-sts-${{ hashFiles('android/gradle/wrapper/gradle-wrapper.properties', 'android/gradle/libs.versions.toml', 'android/safetospend/build.gradle.kts') }}-r1
           restore-keys: gradle-
       - name: Tests (money math + screens on a simulated phone)
         working-directory: android

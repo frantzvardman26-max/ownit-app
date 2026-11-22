@@ -27,7 +27,7 @@ jobs:
             ~/.gradle/wrapper/dists
             ~/.gradle/caches
             ~/.m2/repository/org/robolectric
-          key: gradle-bb-${{ hashFiles('android/gradle/wrapper/gradle-wrapper.properties', 'android/gradle/libs.versions.toml', 'android/bayouburger/build.gradle.kts') }}
+          key: gradle-bb-${{ hashFiles('android/gradle/wrapper/gradle-wrapper.properties', 'android/gradle/libs.versions.toml', 'android/bayouburger/build.gradle.kts') }}-r1
           restore-keys: gradle-
       - name: Build Bayou Burger
         working-directory: android

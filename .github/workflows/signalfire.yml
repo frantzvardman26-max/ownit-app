@@ -32,7 +32,7 @@ jobs:
             ~/.gradle/wrapper/dists
             ~/.gradle/caches
             ~/.m2/repository/org/robolectric
-          key: gradle-sf-${{ hashFiles('android/gradle/wrapper/gradle-wrapper.properties', 'android/gradle/libs.versions.toml', 'android/signalfire/build.gradle.kts') }}
+          key: gradle-sf-${{ hashFiles('android/gradle/wrapper/gradle-wrapper.properties', 'android/gradle/libs.versions.toml', 'android/signalfire/build.gradle.kts') }}-r1
           restore-keys: gradle-
       - name: Build Signal Fire
         working-directory: android

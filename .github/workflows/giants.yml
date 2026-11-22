@@ -27,7 +27,7 @@ jobs:
             ~/.gradle/wrapper/dists
             ~/.gradle/caches
             ~/.m2/repository/org/robolectric
-          key: gradle-gg-${{ hashFiles('android/gradle/wrapper/gradle-wrapper.properties', 'android/gradle/libs.versions.toml', 'android/giants/build.gradle.kts') }}
+          key: gradle-gg-${{ hashFiles('android/gradle/wrapper/gradle-wrapper.properties', 'android/gradle/libs.versions.toml', 'android/giants/build.gradle.kts') }}-r1
           restore-keys: gradle-
       - name: Build Giants & Guns (Free + Gold)
         working-directory: android

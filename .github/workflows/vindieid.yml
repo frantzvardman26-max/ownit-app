@@ -26,7 +26,7 @@ jobs:
             ~/.gradle/wrapper/dists
             ~/.gradle/caches
             ~/.m2/repository/org/robolectric
-          key: gradle-vindieid-${{ hashFiles('android/gradle/wrapper/gradle-wrapper.properties', 'android/gradle/libs.versions.toml', 'android/vindieid/build.gradle.kts') }}
+          key: gradle-vindieid-${{ hashFiles('android/gradle/wrapper/gradle-wrapper.properties', 'android/gradle/libs.versions.toml', 'android/vindieid/build.gradle.kts') }}-r1
           restore-keys: gradle-
       - name: Build Vindie ID
         working-directory: android
