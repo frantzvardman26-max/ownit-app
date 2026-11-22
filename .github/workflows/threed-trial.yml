@@ -1,0 +1,37 @@
+name: 3D trial (a real open model doing real jobs)
+# Builds the open-source llama.cpp engine, loads an open model, and gives 3D real jobs in a throwaway copy of the private
+# repo, scored by checking the result on disk. This public log shows only pass/fail, steps and time: no code, no replies.
+on:
+  workflow_dispatch:
+    inputs:
+      model_repo: {description: 'Hugging Face GGUF repo', default: 'bartowski/Qwen2.5-Coder-7B-Instruct-GGUF'}
+      quant: {description: 'Quantization', default: 'Q4_K_M'}
+      ctx: {description: 'Context length', default: '16384'}
+permissions: {contents: read}
+jobs:
+  trial:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v5
+        with: {repository: frantzvardman26-max/3D, token: "${{ secrets.BUILD_TOKEN }}", fetch-depth: 1}
+      - name: Engine (llama.cpp, open source)
+        run: |
+          git clone -q --depth 1 https://github.com/ggml-org/llama.cpp /tmp/llama
+          echo "engine $(git -C /tmp/llama rev-parse --short HEAD)"
+          cmake -S /tmp/llama -B /tmp/llama/build -DLLAMA_CURL=OFF -DCMAKE_BUILD_TYPE=Release > /dev/null
+          cmake --build /tmp/llama/build --target llama-server -j "$(nproc)" > /dev/null && echo "engine built"
+      - name: Model
+        env: {REPO: "${{ inputs.model_repo }}", Q: "${{ inputs.quant }}"}
+        run: |
+          F=$(curl -fsSL "https://huggingface.co/api/models/$REPO" | python3 -c "import json,sys,re; q=sys.argv[1]; fs=[s['rfilename'] for s in json.load(sys.stdin)['siblings'] if s['rfilename'].endswith('.gguf') and 'mmproj' not in s['rfilename'] and re.search(r'(^|[-_./])'+re.escape(q)+r'([-_./]|$)', s['rfilename'], re.I)]; print(sorted(fs)[0])" "$Q")
+          mkdir -p /tmp/model && curl -fsSL -o "/tmp/model/$(basename "$F")" "https://huggingface.co/$REPO/resolve/main/$F" && echo "MODEL=/tmp/model/$(basename "$F")" >> "$GITHUB_ENV" && ls -la /tmp/model
+      - name: Start the engine
+        run: |
+          nohup /tmp/llama/build/bin/llama-server -m "$MODEL" -c ${{ inputs.ctx }} --jinja --host 127.0.0.1 --port 8080 -t "$(nproc)" > /tmp/engine.log 2>&1 &
+          for i in $(seq 1 120); do curl -fs http://127.0.0.1:8080/v1/models > /dev/null && { echo "engine up after ${i}0s"; break; }; sleep 10; done
+      - name: 3D does the jobs
+        env: {THREED_MODEL_URL: "http://127.0.0.1:8080/v1", THREED_MODEL: "${{ inputs.model_repo }} ${{ inputs.quant }}"}
+        run: |
+          git config --global user.email ci@example.com; git config --global user.name ci
+          python3 server3d/tests/trial.py
