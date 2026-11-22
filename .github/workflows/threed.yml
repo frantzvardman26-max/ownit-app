@@ -28,6 +28,17 @@ jobs:
           restore-keys: gradle-
       - name: Server brain tests (the trust's own assistant, with a fake model)
         run: python3 server3d/tests/test_threed.py
+      - name: Pack the engine's C++ library (libc++_shared.so from Android NDK r29 or newer, matching the engine's compiler)
+        run: |
+          SDK="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"; NDK=$(ls -d "$SDK"/ndk/* 2>/dev/null | sort -V | tail -1)
+          MAJOR=$(basename "${NDK:-0}" | cut -d. -f1)
+          if [ -z "$NDK" ] || [ "${MAJOR:-0}" -lt 29 ]; then
+            V=$("$SDK/cmdline-tools/latest/bin/sdkmanager" --list 2>/dev/null | grep -oE "ndk;(29|3[0-9])\.[0-9.]+" | sort -t';' -k2 -V | tail -1)
+            echo "installing $V"; yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --install "$V" > /dev/null; NDK="$SDK/ndk/${V#ndk;}"
+          fi
+          echo "NDK $(basename "$NDK")"
+          L=$(find "$NDK" -path "*aarch64-linux-android/libc++_shared.so" | head -1); [ -f "$L" ] || { echo "::error::libc++_shared.so not found in $NDK"; exit 1; }
+          cp "$L" android/lib/src/main/jniLibs/arm64-v8a/ && ls -la android/lib/src/main/jniLibs/arm64-v8a/
       - name: Build 3D
         working-directory: android
         run: |
@@ -43,6 +54,12 @@ jobs:
           M=app/build/outputs/mapping/debug/mapping.txt
           if [ -f "$M" ]; then grep -q "^com.arm.aichat.internal.InferenceEngineImpl -> com.arm.aichat.internal.InferenceEngineImpl:" "$M" && echo "engine classes kept" || { echo "::error::Shrinking renamed the engine's native class: 3D would close on start"; exit 1; }; fi
           unzip -l ../ThreeD.apk | grep -E "lib/arm64-v8a/.*\.so" | head -5; unzip -l ../ThreeD.apk | grep -qE "lib/arm64-v8a/.*\.so" || { echo "::error::No engine library in the app"; exit 1; }
+          # every library the engine needs is either part of Android or packed in the app (a missing one closed 3D on start)
+          T=$(mktemp -d); unzip -q -o ../ThreeD.apk 'lib/arm64-v8a/*' -d "$T"
+          for so in "$T"/lib/arm64-v8a/*.so; do for need in $(readelf -d "$so" | sed -n 's/.*Shared library: \[\(.*\)\]/\1/p'); do
+            case "$need" in libc.so|libm.so|libdl.so|liblog.so|libandroid.so|libz.so|libEGL.so|libGLESv2.so|libGLESv3.so|libvulkan.so|libjnigraphics.so|libmediandk.so|libOpenSLES.so|libnativewindow.so|libsync.so|libbinder_ndk.so) ;;
+              *) [ -f "$T/lib/arm64-v8a/$need" ] || { echo "::error::$(basename "$so") needs $need, which is not in the app"; exit 1; } ;; esac; done; done
+          echo "every engine library dependency is present"
       - name: Save to the private app vault (never published)
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
