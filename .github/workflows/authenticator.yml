@@ -4,7 +4,7 @@ on:
 # Built here because GitHub Actions is free for public repositories. The code comes from the private repo.
 # Not published anywhere public: the finished app goes only to the private app vault (owner download, not in beta yet).
 permissions:
-  contents: read
+  contents: write
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -43,6 +43,15 @@ jobs:
       - name: Tests (simulated phone)
         working-directory: android
         run: for i in 1 2 3; do ./gradlew :authenticator:testDebugUnitTest --no-daemon && exit 0; echo "Tests could not run (often a download limit); waiting and trying again"; sleep 90; done; exit 1
+      - name: Share screen-test screenshots (branch au-screens, framed for the store by the screenshot bot)
+        if: always()
+        run: |
+          D=android/authenticator/build/screens
+          [ -d "$D" ] || { echo "No screenshots"; exit 0; }
+          T=$(mktemp -d); cp "$D"/*.png "$T"/ 2>/dev/null || true; ls "$T" | grep -q . || exit 0
+          cd "$T" && git init -q && git checkout -q -b au-screens && git add -A
+          git -c user.name=ci -c user.email=ci@example.com commit -qm "screens"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" au-screens || echo "::warning::Couldn't push screenshots"
       - name: Privacy check (no internet at all; camera only for QR codes)
         run: |
           # Why: the privacy policy says the only internet use is asking the shop for the newest version. This fails the build if anything more is ever added.
