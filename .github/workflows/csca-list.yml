@@ -1,0 +1,49 @@
+name: Refresh Vindie ID's country root certificates (CSCA master list)
+# Downloads the German CSCA Master List (BSI, free to use: not in advertising, and no implied cooperation with the BSI),
+# checks the list's own signature, and writes every country root certificate as a PEM bundle into the private repo
+# (android/vindieid/src/main/assets/csca.pem). Vindie ID uses it to check a chip's Document Signer up to its country's root.
+on: {workflow_dispatch: {}}
+permissions: {contents: read}
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    env: {GH_TOKEN: '${{ secrets.BUILD_TOKEN }}'}
+    steps:
+      - run: |
+          set -e
+          U='https://www.bsi.bund.de/SharedDocs/Downloads/DE/BSI/ElekAusweise/CSCA/GermanMasterList.zip?__blob=publicationFile'
+          curl -fsSL -A 'Mozilla/5.0 (VindieID master list refresh)' "$U" -o ml.zip; sha256sum ml.zip
+          mkdir ml && unzip -q ml.zip -d ml && ML=$(find ml -iname '*.ml' | head -1); [ -n "$ML" ] || { echo "no .ml in the zip"; find ml; exit 1; }
+          # the list is signed (CMS). Check that signature with the signer certificate it carries, and get the content out.
+          openssl cms -verify -inform DER -in "$ML" -noverify -out content.der -certsout signer.pem 2>verify.txt; cat verify.txt
+          grep -q 'Verification successful' verify.txt || { echo "master list signature did not verify"; exit 1; }
+          openssl x509 -in signer.pem -noout -subject -issuer -dates | sed 's/^/signer: /' || true
+          python3 - <<'PY'
+          import base64
+          d = open('content.der','rb').read()
+          def tlv(b, i):
+              t = b[i]; i += 1; l = b[i]; i += 1
+              if l & 0x80: n = l & 0x7f; l = int.from_bytes(b[i:i+n], 'big'); i += n
+              return t, i, l
+          t, i, l = tlv(d, 0); assert t == 0x30            # CscaMasterList ::= SEQUENCE {
+          t, j, l2 = tlv(d, i); assert t == 0x02; i = j + l2 #   version INTEGER,
+          t, j, l3 = tlv(d, i); assert t == 0x31             #   certList SET OF Certificate }
+          end = j + l3; certs = []; k = j
+          while k < end:
+              s = k; t, c, cl = tlv(d, k); assert t == 0x30; k = c + cl; certs.append(d[s:k])
+          seen = set(); out = []
+          for c in certs:
+              if c in seen: continue
+              seen.add(c); b = base64.encodebytes(c).decode().replace('\n', '')
+              out.append('-----BEGIN CERTIFICATE-----\n' + '\n'.join(b[x:x+64] for x in range(0, len(b), 64)) + '\n-----END CERTIFICATE-----\n')
+          open('csca.pem', 'w').write(''.join(out)); print('certificates:', len(certs), 'unique:', len(out))
+          PY
+          n=$(grep -c 'BEGIN CERTIFICATE' csca.pem); [ "$n" -gt 300 ] || { echo "too few certificates ($n)"; exit 1; }
+          openssl crl2pkcs7 -nocrl -certfile csca.pem | openssl pkcs7 -print_certs -noout | grep -o 'C *= *[A-Z][A-Z]' | sort -u | wc -l | sed 's/^/countries: /'
+          git clone -q --depth 1 "https://x-access-token:${GH_TOKEN}@github.com/frantzvardman26-max/3D.git" priv
+          mkdir -p priv/android/vindieid/src/main/assets priv/shop/assets-src/csca
+          cp csca.pem priv/android/vindieid/src/main/assets/csca.pem
+          { echo "German CSCA Master List (BSI): $U"; echo "zip sha256: $(sha256sum ml.zip | cut -c1-64)"; echo "fetched: $(date -u +%FT%TZ)"; echo "certificates: $n"; cat verify.txt; openssl x509 -in signer.pem -noout -subject -dates 2>/dev/null; echo "Terms: free to use, also commercially, but not in advertising and without suggesting cooperation with the BSI."; } > priv/shop/assets-src/csca/SOURCE.txt
+          cd priv && git add android/vindieid/src/main/assets/csca.pem shop/assets-src/csca/SOURCE.txt
+          git -c user.name="Frantz Vardman" -c user.email="frantzvardman26-max@users.noreply.github.com" commit -q -m "Vindie ID: country root certificates (CSCA master list, $n certificates)" || { echo "nothing new"; exit 0; }
+          git push -q origin HEAD:main && echo pushed
