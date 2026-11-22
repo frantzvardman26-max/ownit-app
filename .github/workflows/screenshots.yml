@@ -1,0 +1,27 @@
+name: Store screenshots (screenshot bot, weekly)
+# Plays every web game in a phone-sized browser, frames the shots (shop/tools/screenshot_bot), commits them to the private repo
+# when they changed, then rebuilds the Free Lane catalog so the store shows them. Runs Sundays, or by hand (optionally one app: ONLY=vdc|monkey).
+on:
+  schedule: [{cron: '17 19 * * 0'}]
+  workflow_dispatch:
+    inputs:
+      only: {description: 'vdc or monkey (empty = all games)', required: false, default: ''}
+permissions: {contents: read}
+jobs:
+  shots:
+    runs-on: ubuntu-latest
+    env: {GH_TOKEN: '${{ secrets.BUILD_TOKEN }}', ONLY: '${{ inputs.only }}'}
+    steps:
+      - run: |
+          set -e
+          git clone -q --depth 1 "https://x-access-token:${GH_TOKEN}@github.com/frantzvardman26-max/3D.git" priv
+          cd priv/shop/tools/screenshot_bot && npm init -y >/dev/null && npm i -s playwright@1 >/dev/null && npx playwright install --with-deps chromium >/dev/null
+          pip install -q pillow
+          (cd ../../site && python3 -m http.server 8765 >/dev/null 2>&1 &) ; sleep 2
+          mkdir -p raw && OUT=raw node capture.js
+          if [ -n "$ONLY" ]; then python3 frame.py raw ../../screens "com.frantzvardman.$ONLY"; else python3 frame.py raw ../../screens; fi
+          rm -rf node_modules package.json package-lock.json raw
+          cd ../../.. && git add shop/screens
+          git -c user.name="Frantz Vardman" -c user.email="frantzvardman26-max@users.noreply.github.com" commit -q -m "Store screenshots refreshed by the screenshot bot" || { echo "no changes"; exit 0; }
+          git push -q origin HEAD:main && echo pushed
+          gh api -X POST repos/frantzvardman26-max/ownit-app/actions/workflows/fdroid-repo.yml/dispatches -f ref=main && echo "catalog rebuild started"
