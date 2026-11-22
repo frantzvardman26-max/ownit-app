@@ -1,0 +1,43 @@
+name: Refresh Vindie Authenticator's site logos (Simple Icons, CC0)
+# Takes the logos of sites people commonly protect with two-step codes from the Simple Icons npm package (CC0, checked),
+# and writes them as one small JSON (name, color, 24x24 path) into the private repo for the app to draw offline.
+on: {workflow_dispatch: {}}
+permissions: {contents: read}
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    env: {GH_TOKEN: '${{ secrets.BUILD_TOKEN }}'}
+    steps:
+      - run: |
+          set -e
+          V=$(npm view simple-icons version); npm pack "simple-icons@$V" >/dev/null; mkdir si && tar xzf simple-icons-*.tgz -C si
+          node -e "const p=require('./si/package/package.json'); if(p.license!=='CC0-1.0'){console.log('license is',p.license);process.exit(1)} console.log('simple-icons',p.version,p.license)"
+          cat > pick.js <<'JS'
+          const fs = require('fs'), dir = 'si/package/icons/';
+          const want = `google gmail youtube github gitlab bitbucket microsoft microsoftazure microsoftoutlook apple icloud amazon amazonwebservices facebook instagram meta whatsapp messenger threads x twitter
+          discord twitch reddit dropbox box paypal venmo cashapp stripe square coinbase binance kraken kucoin gemini bitcoin ethereum robinhood wise revolut
+          cloudflare digitalocean linode hetzner ovh vercel netlify heroku render firebase supabase docker npm pypi rubygems
+          slack zoom tiktok snapchat linkedin pinterest tumblr telegram signal mastodon bluesky
+          steam epicgames playstation nintendo ubisoft battledotnet roblox ea riotgames
+          shopify wordpress godaddy namecheap porkbun squarespace wix
+          protonmail proton tutanota fastmail bitwarden 1password lastpass dashlane keeper nextcloud
+          yahoo zoho adobe figma notion atlassian jira trello asana mailchimp twilio openai anthropic patreon kickstarter etsy ebay airbnb uber lyft spotify soundcloud bandcamp
+          gusto quickbooks xero intuit fidelity charlesschwab vanguard chase bankofamerica wellsfargo capitalone americanexpress discover
+          namecheap hostinger bluehost tailscale wireguard okta auth0 duo`.split(/\s+/).filter(Boolean);
+          const out = {};
+          for (const slug of [...new Set(want)]) { const f = dir + slug + '.svg'; if (!fs.existsSync(f)) continue; const svg = fs.readFileSync(f, 'utf8');
+            const d = (svg.match(/ d="([^"]+)"/) || [])[1], title = (svg.match(/<title>([^<]+)<\/title>/) || [])[1]; if (!d) continue; out[slug] = { t: title, d }; }
+          let data = []; try { data = require('./si/package/data/simple-icons.json'); data = data.icons || data; } catch (e) {}
+          const slugOf = t => t.toLowerCase().replace(/\+/g, 'plus').replace(/^\./, 'dot-').replace(/&/g, 'and').replace(/[^a-z0-9]/g, '');
+          for (const i of data) { const s = i.slug || slugOf(i.title); if (out[s]) out[s].c = i.hex; }
+          fs.writeFileSync('brands.json', JSON.stringify(out)); console.log('logos:', Object.keys(out).length, 'with colors:', Object.values(out).filter(x => x.c).length, 'bytes:', fs.statSync('brands.json').size);
+          console.log('missing:', want.filter(w => !out[w]).join(' '));
+          JS
+          node pick.js
+          git clone -q --depth 1 "https://x-access-token:${GH_TOKEN}@github.com/frantzvardman26-max/3D.git" priv
+          mkdir -p priv/android/authenticator/src/main/assets priv/shop/assets-src/brand-icons
+          cp brands.json priv/android/authenticator/src/main/assets/brands.json; cp si/package/LICENSE.md priv/shop/assets-src/brand-icons/LICENSE.md 2>/dev/null || true
+          { echo "Simple Icons $V (npm), CC0-1.0. https://simpleicons.org"; echo "Logos are trademarks of their owners; shown only to label each account (Simple Icons legal disclaimer applies)."; } > priv/shop/assets-src/brand-icons/SOURCE.txt
+          cd priv && git add android/authenticator/src/main/assets/brands.json shop/assets-src/brand-icons
+          git -c user.name="Frantz Vardman" -c user.email="frantzvardman26-max@users.noreply.github.com" commit -q -m "Vindie Authenticator: site logos (Simple Icons $V, CC0)" || { echo nothing new; exit 0; }
+          git push -q origin HEAD:main && echo pushed
