@@ -42,7 +42,7 @@ jobs:
           ls -la ../VindieID.apk
       - name: Tests (simulated phone)
         working-directory: android
-        run: ./gradlew :vindieid:testDebugUnitTest --no-daemon
+        run: for i in 1 2 3; do ./gradlew :vindieid:testDebugUnitTest --no-daemon && exit 0; echo "Tests could not run (often a download limit); waiting and trying again"; sleep 90; done; exit 1
       - name: Privacy check (no internet at all; NFC only for the passport chip)
         run: |
           # Why: the privacy policy says the only internet use is asking the shop for the newest version. This fails the build if anything more is ever added.
