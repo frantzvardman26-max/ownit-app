@@ -28,5 +28,5 @@ jobs:
           rm -rf node_modules package.json package-lock.json raw
           cd ../../.. && git add shop/screens shop/assets-src/raw-shots
           git -c user.name="Frantz Vardman" -c user.email="frantzvardman26-max@users.noreply.github.com" commit -q -m "Store screenshots refreshed by the screenshot bot" || { echo "no changes"; exit 0; }
-          git push -q origin HEAD:main && echo pushed
+          for i in 1 2 3 4; do git pull -q --rebase origin main && git push -q origin HEAD:main && { echo pushed; break; }; [ $i = 4 ] && { echo "::error::couldn't save the screenshots"; exit 1; }; sleep 5; done   # someone else may have pushed meanwhile
           gh api -X POST repos/frantzvardman26-max/ownit-app/actions/workflows/fdroid-repo.yml/dispatches -f ref=main && echo "catalog rebuild started"
