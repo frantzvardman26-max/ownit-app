@@ -5,7 +5,7 @@ on:
   schedule: [{cron: '17 19 * * 0'}]
   workflow_dispatch:
     inputs:
-      only: {description: 'vdc or monkey (empty = all games)', required: false, default: ''}
+      only: {description: 'vdc, monkey or web (empty = everything)', required: false, default: ''}
 permissions: {contents: read}
 jobs:
   shots:
@@ -19,9 +19,14 @@ jobs:
           pip install -q pillow
           (cd ../../site && python3 -m http.server 8765 >/dev/null 2>&1 &) ; sleep 2
           mkdir -p raw && OUT=raw node capture.js
-          if [ -n "$ONLY" ]; then python3 frame.py raw ../../screens "com.frantzvardman.$ONLY"; else python3 frame.py raw ../../screens; fi
+          case "$ONLY" in
+            "") python3 frame.py raw ../../screens ;;
+            web) for k in com.bayouburgerllc.app com.frantzvardman.palm com.frantzvardman.vindie com.frantzvardman.vindienews; do python3 frame.py raw ../../screens $k; done ;;
+            *) python3 frame.py raw ../../screens "com.frantzvardman.$ONLY" ;;
+          esac
+          mkdir -p ../../assets-src/raw-shots && cp raw/*.png ../../assets-src/raw-shots/   # the unframed captures, kept for checking captions
           rm -rf node_modules package.json package-lock.json raw
-          cd ../../.. && git add shop/screens
+          cd ../../.. && git add shop/screens shop/assets-src/raw-shots
           git -c user.name="Frantz Vardman" -c user.email="frantzvardman26-max@users.noreply.github.com" commit -q -m "Store screenshots refreshed by the screenshot bot" || { echo "no changes"; exit 0; }
           git push -q origin HEAD:main && echo pushed
           gh api -X POST repos/frantzvardman26-max/ownit-app/actions/workflows/fdroid-repo.yml/dispatches -f ref=main && echo "catalog rebuild started"
