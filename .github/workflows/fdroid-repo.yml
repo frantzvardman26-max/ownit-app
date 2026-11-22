@@ -69,6 +69,7 @@ jobs:
           get PalmDistribute.apk https://github.com/frantzvardman26-max/ownit-app/releases/download/palm/PalmDistribute.apk
           get CaveHunt.apk https://shop.frantzmichaelsthilairevardman.com/missing/CaveHunt.apk
           get MonkeyMoney.apk https://shop.frantzmichaelsthilairevardman.com/missing/MonkeyMoney.apk
+          get VindieDungeonCrawler.apk https://shop.frantzmichaelsthilairevardman.com/missing/VindieDungeonCrawler.apk
           get JFStudios.apk https://shop.frantzmichaelsthilairevardman.com/missing/JFStudios.apk
           get VindieNews.apk https://github.com/frantzvardman26-max/ownit-app/releases/download/vindienews/VindieNews.apk
           get BayouBurger.apk https://github.com/frantzvardman26-max/ownit-app/releases/download/bayouburger/BayouBurger.apk
@@ -89,6 +90,7 @@ jobs:
           m com.frantzvardman.jfstudios Multimedia "Films, trailers and a studio you can hire" "J & F Studios: watch the CHICO: The Creole Crown trailer, see what the studio makes, and ask for a quote on trailers, title cards, music videos and remasters. For members: sign in with your shop account." "J & F Studios"
           m com.frantzvardman.vindievpn Internet "BETA · Your own private VPN" "BETA. Vindie VPN: your traffic encrypted to your own server, ad and tracker blocking, a kill switch, and your server's health at a glance. Beta testers first, then members on January 1, 2027." "Vindie VPN"
           m com.frantzvardman.monkey Games "A genius monkey escapes the lab" "Monkey Money: run, jump and blast bananas through 10 stages, grab power-ups, unlock rarer monkeys and beat the lab director's mech." "Monkey Money"
+          m com.frantzvardman.vdc Games "BETA · Step into the dark: fight, loot, go deeper" "Vindie Dungeon Crawler (VDC): a first-person dungeon crawler. Pick a Knight, Ranger or Mage, step through torch-lit halls one square at a time, fight monsters, open chests, level up and face a boss every 5th floor. RIZZ22's paintings hang on the walls; TheMarket777 plays the soundtrack. Free while in beta." "Vindie Dungeon Crawler"
           m com.frantzvardman.giants Games "A side-view shooter: endless rooms, 4 giants" "Giants & Guns: run, jump and blast your way through room after room while your gun aims itself. Level up and pick power-ups like Purple Love Slime, Bounce Ball, Boom Headphones and the Haymaker Glove, then take down Big Head, Brow, Grimjaw and KRAMP the Sleeping Giant. Free and offline, nothing collected. Want more? The Gold Edition (no ads, 500 gold, the Golden Gatling) is in the Frantz Vardman Shop." "Giants & Guns"
           m com.frantzvardman.vindie Internet "BETA · Advertise your business on Frantz Vardman sites and apps" "BETA. Vindie Ads: book an ad from \$25 a week. Add a headline, picture and link, see a live preview, pay in your browser, and track your ad's views. Ads rotate fairly with no trackers." "Vindie Ads (Beta)"
           m com.frantzvardman.palm Multimedia "BETA · Merch for independent artists" "BETA. Palm Distribute Music: apply in three quick steps, set up your own merch store and artist page, and keep your rights. Checkout opens in your browser. No trackers." "Palm Distribute (Beta)"
@@ -113,7 +115,7 @@ jobs:
           icon com.frantzvardman.safepocket safepocket; icon com.frantzvardman.crownrush crownrush; icon com.frantzvardman.purebeats purebeats
           icon com.frantzvardman.signalfire signalfire; icon com.frantzvardman.clearcheck clearcheck; icon com.frantzvardman.rexvoice rexvoice; icon com.frantzvardman.freelane freelane; icon com.frantzvardman.lovly lovly; icon com.frantzvardman.reclaim reclaim; icon com.bayouburgerllc.app bayouburger
           mkdir -p metadata/com.frantzvardman.giants/en-US/phoneScreenshots; cp ../android/giants/docs/icon.png metadata/com.frantzvardman.giants/en-US/icon.png
-          for g in cave monkey jfstudios; do mkdir -p metadata/com.frantzvardman.$g/en-US/phoneScreenshots; cp ../android/$g/docs/icon.png metadata/com.frantzvardman.$g/en-US/icon.png; done
+          for g in cave monkey vdc jfstudios; do mkdir -p metadata/com.frantzvardman.$g/en-US/phoneScreenshots; cp ../android/$g/docs/icon.png metadata/com.frantzvardman.$g/en-US/icon.png; done
           mkdir -p metadata/com.frantzvardman.vindie/en-US/phoneScreenshots; cp ../android/vindie/docs/icon.png metadata/com.frantzvardman.vindie/en-US/icon.png
           mkdir -p metadata/com.frantzvardman.palm/en-US/phoneScreenshots; cp ../android/palm/docs/icon.png metadata/com.frantzvardman.palm/en-US/icon.png
           mkdir -p metadata/com.frantzvardman.vindienews/en-US; cp ../android/vindienews/docs/icon.png metadata/com.frantzvardman.vindienews/en-US/icon.png
