@@ -1,0 +1,45 @@
+name: Week record (sealed in the trust's vault every Sunday night)
+# Seals the week's work in the private repo's vault: every commit with its files, the records sealed that week and the
+# achievements unlocked (with level/XP before and after). Encrypted to the trust's public key; nothing readable is printed.
+on:
+  schedule:
+    - cron: '45 7 * * 1'   # Sunday 11:45 pm Pacific
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  seal:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      GH_TOKEN: ${{ secrets.BUILD_TOKEN }}
+    steps:
+      - uses: actions/checkout@v5
+        with: {repository: frantzvardman26-max/3D, token: "${{ secrets.BUILD_TOKEN }}", fetch-depth: 400, lfs: false}
+      - name: Tools
+        run: sudo apt-get install -y -qq age > /dev/null && pip install -q opentimestamps-client
+      - name: Achievements unlocked this week (from the Master Panel's history)
+        run: |
+          npx --yes wrangler@3 d1 execute shop-downloads --remote --json --command "SELECT id, name, got_at AS gotAt, how, earned_by AS earnedBy, before_json, after_json FROM owner_achievements WHERE got_at != ''" > a.json 2>/dev/null || echo '[]' > a.json
+          python3 - <<'PY'
+          import json
+          try: rows = json.load(open('a.json'))[0]['results']
+          except Exception: rows = []
+          for r in rows:
+              for k in ('before', 'after'):
+                  try: r[k] = json.loads(r.pop(k + '_json') or 'null')
+                  except Exception: r[k] = None
+          json.dump(rows, open('/tmp/achievements.json', 'w')); print(len(rows), 'achievements on record')
+          PY
+          rm -f a.json
+      - name: Seal the week
+        run: |
+          OUT=$(TZ=America/Los_Angeles python3 tools/week_record.py --achievements /tmp/achievements.json | tail -1); echo "$OUT" | sed 's/sha256 .*/sha256 recorded/'
+          H=$(ls -t proofs/stamps/*-week-record*.hash.txt | head -1); [ -f "$H" ] && (cd "$(dirname "$H")" && ots stamp "$(basename "$H")" > /dev/null 2>&1 && echo "Bitcoin timestamp started") || true
+      - name: Save to the private repo
+        run: |
+          git config user.name "Frantz Vardman"; git config user.email "frantzvardman26-max@users.noreply.github.com"
+          git add vault proofs/stamps shop/site/functions/api/_assets.json
+          git diff --cached --quiet && { echo "nothing new"; exit 0; }
+          git commit -qm "Week record sealed in the vault (hash timestamped on Bitcoin)"
+          for i in 1 2 3; do git pull -q --rebase && git push -q && { echo "saved"; break; }; sleep 10; done
