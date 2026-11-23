@@ -4,7 +4,7 @@ on:
 # Built here because GitHub Actions is free for public repositories. The code is checked out from the private repo;
 # the finished app goes only to the private app vault (owner-only Free Lane listing), never to a public page.
 permissions:
-  contents: read
+  contents: write
   actions: write
 jobs:
   build:
@@ -41,6 +41,14 @@ jobs:
         working-directory: android
         run: |
           for i in 1 2 3; do ./gradlew :vindiemaps:testDebugUnitTest --no-daemon && break; [ $i = 3 ] && exit 1; sleep 60; done
+      - name: Share screen-test screenshots for review (branch vm-screens)
+        if: always()
+        run: |
+          D=android/vindiemaps/build/screens; [ -d "$D" ] || { echo "No screenshots"; exit 0; }
+          T=$(mktemp -d); cp "$D"/*.png "$T"/ 2>/dev/null || exit 0
+          cd "$T" && git init -q && git checkout -q -b vm-screens && git add -A
+          git -c user.name=ci -c user.email=ci@example.com commit -qm "screens"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" vm-screens || echo "::warning::Couldn't push screenshots"
       - name: Permission check (no Google services, no accounts, no contacts)
         run: |
           BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
