@@ -1,0 +1,30 @@
+name: Add a free address on the shop's domain
+on:
+  workflow_dispatch:
+    inputs:
+      name: {description: 'Sub-address to add, e.g. vindie (becomes vindie.<shop domain>)', required: true}
+permissions: {contents: read}
+jobs:
+  add:
+    runs-on: ubuntu-latest
+    env:
+      CF: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      ACCT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      ZONE_NAME: frantzmichaelsthilairevardman.com
+      PROJECT: frantz-vardman-shop
+    steps:
+      - name: Point it at the shop
+        run: |
+          set -e
+          N="${{ github.event.inputs.name }}"; echo "$N" | grep -Eq '^[a-z0-9-]{1,40}$' || { echo "::error::Use letters, numbers and dashes only"; exit 1; }
+          H="$N.$ZONE_NAME"; api() { curl -s -H "Authorization: Bearer $CF" -H "Content-Type: application/json" "$@"; }
+          R=$(api -X POST "https://api.cloudflare.com/client/v4/accounts/$ACCT/pages/projects/$PROJECT/domains" -d "{\"name\":\"$H\"}")
+          echo "Pages: $(echo "$R" | jq -c '{success, errors: [.errors[]?.message]}')"
+          Z=$(api "https://api.cloudflare.com/client/v4/zones?name=$ZONE_NAME" | jq -r '.result[0].id // empty')
+          [ -n "$Z" ] || { echo "::error::The token can't see the domain's DNS zone (needs Zone: DNS Edit)"; exit 1; }
+          if [ "$(api "https://api.cloudflare.com/client/v4/zones/$Z/dns_records?name=$H" | jq '.result | length')" = "0" ]; then
+            D=$(api -X POST "https://api.cloudflare.com/client/v4/zones/$Z/dns_records" -d "{\"type\":\"CNAME\",\"name\":\"$N\",\"content\":\"$PROJECT.pages.dev\",\"proxied\":true,\"comment\":\"free address, added by workflow\"}")
+            echo "DNS: $(echo "$D" | jq -c '{success, errors: [.errors[]?.message]}')"
+            [ "$(echo "$D" | jq -r .success)" = "true" ] || exit 1
+          else echo "DNS: already there"; fi
+          sleep 20; api "https://api.cloudflare.com/client/v4/accounts/$ACCT/pages/projects/$PROJECT/domains/$H" | jq -c '{status: .result.status, ssl: .result.validation_data.status}'
