@@ -46,6 +46,7 @@ jobs:
           npx --yes wrangler@4 d1 execute shop-downloads --remote --file done.sql >/dev/null
       - name: Remind about anything overdue
         run: |
+          npx --yes wrangler@4 d1 execute shop-downloads --remote --command "ALTER TABLE drop_parts ADD COLUMN cat TEXT" >/dev/null 2>&1 || true
           cat > due.sql <<'SQL'
           CREATE TABLE IF NOT EXISTS vault_auto (cat TEXT, at TEXT, note TEXT);
           CREATE TABLE IF NOT EXISTS owner_alerts (id INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT, title TEXT, message TEXT, tags TEXT, click TEXT, seen INTEGER DEFAULT 0);
