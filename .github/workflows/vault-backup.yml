@@ -1,0 +1,60 @@
+name: Vault backup (code + signing key)
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '23 9 * * 1'   # Mondays
+# A second copy of the 3D repo (every branch, all history, the app signing key inside it), locked with Frantz's vault key
+# before it leaves this machine and stored in the private vault in pieces. Only his key opens it; this log shows sizes only.
+# Also leaves one Master Panel alert when something on the Vault checklist is overdue.
+permissions: { contents: read }
+concurrency: { group: vault-backup, cancel-in-progress: false }
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      VAULT: age12jhj6zn6cw6e5xkl0hz7cwrzjz7kenqtcpq0sc2cpd4qahnnzcxq083nma
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          repository: frantzvardman26-max/3D
+          token: ${{ secrets.BUILD_TOKEN }}
+          fetch-depth: 0
+          path: src
+      - name: Lock and store
+        run: |
+          set -e
+          sudo apt-get install -y -qq age >/dev/null
+          git -C src fetch -q origin '+refs/heads/*:refs/remotes/origin/*'
+          git -C src bundle create ../3d.bundle --all 2>/dev/null
+          git bundle verify 3d.bundle >/dev/null 2>&1 && echo "Bundle checks out"
+          SHA=$(sha256sum 3d.bundle | cut -d' ' -f1); SIZE=$(stat -c%s 3d.bundle)
+          age -r "$VAULT" -o 3d.bundle.age 3d.bundle && rm 3d.bundle
+          split -b 250M -d -a 3 3d.bundle.age part-
+          N=$(ls part-* | wc -l)
+          for f in part-*; do npx --yes wrangler@4 r2 object put "fv-app-vault/backup/3d/$f.age" --file "$f" --remote >/dev/null 2>&1 || { echo "::error::Could not store $f"; exit 1; }; done
+          printf '{"at":"%s","parts":%s,"bytes":%s,"sha256":"%s","join":"cat part-* > 3d.bundle.age; age -d -i key.txt 3d.bundle.age > 3d.bundle; git clone 3d.bundle 3D"}' "$(date -u +%FT%TZ)" "$N" "$SIZE" "$SHA" > manifest.json
+          npx --yes wrangler@4 r2 object put "fv-app-vault/backup/3d/manifest.json" --file manifest.json --remote >/dev/null 2>&1
+          echo "Stored $N locked pieces ($((SIZE/1048576)) MB of code and history)"
+          cat > done.sql <<SQL
+          CREATE TABLE IF NOT EXISTS vault_auto (cat TEXT, at TEXT, note TEXT);
+          INSERT INTO vault_auto VALUES ('code', strftime('%Y-%m-%dT%H:%M:%fZ','now'), 'weekly backup, $N pieces');
+          INSERT INTO vault_auto VALUES ('signing', strftime('%Y-%m-%dT%H:%M:%fZ','now'), 'inside the code backup');
+          SQL
+          npx --yes wrangler@4 d1 execute shop-downloads --remote --file done.sql >/dev/null
+      - name: Remind about anything overdue
+        run: |
+          cat > due.sql <<'SQL'
+          CREATE TABLE IF NOT EXISTS vault_auto (cat TEXT, at TEXT, note TEXT);
+          CREATE TABLE IF NOT EXISTS owner_alerts (id INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT, title TEXT, message TEXT, tags TEXT, click TEXT, seen INTEGER DEFAULT 0);
+          WITH kinds(k, every) AS (VALUES ('recovery',180),('legal',90),('money',30),('screenshots',30),('words',30),('google',120),('people',60)),
+          seen(k, at) AS (SELECT cat, MAX(at) FROM vault_auto GROUP BY cat UNION ALL SELECT cat, MAX(at) FROM drop_parts WHERE cat IS NOT NULL GROUP BY cat),
+          late AS (SELECT kinds.k FROM kinds LEFT JOIN (SELECT k, MAX(at) at FROM seen GROUP BY k) s ON s.k = kinds.k
+                   WHERE s.at IS NULL OR julianday('now') - julianday(s.at) > kinds.every)
+          INSERT INTO owner_alerts (at, title, message, tags, click)
+          SELECT strftime('%Y-%m-%dT%H:%M:%fZ','now'), 'Vault: ' || COUNT(*) || ' due', 'Time to save: ' || GROUP_CONCAT(k, ', ') || '. Open the Master Panel → Vault.', 'lock',
+                 'https://shop.frantzmichaelsthilairevardman.com/portfolio#vault' FROM late HAVING COUNT(*) > 0;
+          SQL
+          npx --yes wrangler@4 d1 execute shop-downloads --remote --file due.sql >/dev/null && echo "Checklist checked"
