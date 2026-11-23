@@ -75,7 +75,6 @@ jobs:
           get JFStudios.apk https://shop.frantzmichaelsthilairevardman.com/missing/JFStudios.apk
           get VindieNews.apk https://github.com/frantzvardman26-max/ownit-app/releases/download/vindienews/VindieNews.apk
           get BayouBurger.apk https://github.com/frantzvardman26-max/ownit-app/releases/download/bayouburger/BayouBurger.apk
-          get VindieVPN.apk https://shop.frantzmichaelsthilairevardman.com/missing/VindieVPN.apk
           # Rex Voice is left out: ~220 MB with its voice model, over GitHub's 100 MB file limit for this branch.
           find repo -name "*.apk" -size +95M -print -delete
           ls -la repo
@@ -90,7 +89,6 @@ jobs:
           m com.frantzvardman.crownrush Games "Catch the gold, dodge the bombs" "Bombs & Bullion: a one-thumb arcade game starring 10 animal superheroes. Catch the gold, dodge the bombs, grab the lightning to unleash your hero's power, and beat the Bomb King. Offline." "Bombs & Bullion"
           m com.frantzvardman.cave Games "Riddles, torches and five caves" "Cave Hunt: build your village, raid five story caves, answer riddles before your torch burns out, and earn up to 3 stars a cave. Easy, Medium and Hard." "Cave Hunt"
           m com.frantzvardman.jfstudios Multimedia "Films, trailers and a studio you can order from" "J & F Studios: watch the CHICO: The Creole Crown trailer, see what the studio makes, and ask for a quote on trailers, title cards, music videos and remasters. For members: sign in with your shop account." "J & F Studios"
-          m com.frantzvardman.vindievpn Internet "BETA · Your own private VPN" "BETA. Vindie VPN: your traffic encrypted to your own server, ad and tracker blocking, a kill switch, and your server's health at a glance. Beta testers first, then members on January 1, 2027." "Vindie VPN"
           m com.frantzvardman.monkey Games "A genius monkey escapes the lab" "Monkey Money: run, jump and blast bananas through 10 stages, grab power-ups, unlock rarer monkeys and beat the lab director's mech." "Monkey Money"
           m com.frantzvardman.vdc Games "BETA · Step into the dark: fight, loot, go deeper" "Vindie Dungeon Crawler (VDC): a first-person dungeon crawler. Pick a Knight, Ranger or Mage, step through torch-lit halls one square at a time, fight monsters, open chests, level up and face a boss every 5th floor. RIZZ22's paintings hang on the walls; TheMarket777 plays the soundtrack. Free while in beta." "Vindie Dungeon Crawler"
           m com.frantzvardman.authenticator Security "BETA · Your sign-in codes, no internet, no Google" "Vindie Authenticator: two-step sign-in codes for GitHub, Stripe, Cloudflare, Facebook and any site that offers an authenticator app. No internet permission at all, so your secrets can never leave the phone. Fingerprint or screen-lock protected, hidden from screenshots, encrypted with the phone's hardware key, and backed up only to a file locked with your own passphrase. Imports from Google Authenticator in one scan." "Vindie Authenticator"
@@ -123,7 +121,6 @@ jobs:
           mkdir -p metadata/com.frantzvardman.vindie/en-US/phoneScreenshots; cp ../android/vindie/docs/icon.png metadata/com.frantzvardman.vindie/en-US/icon.png
           mkdir -p metadata/com.frantzvardman.palm/en-US/phoneScreenshots; cp ../android/palm/docs/icon.png metadata/com.frantzvardman.palm/en-US/icon.png
           mkdir -p metadata/com.frantzvardman.vindienews/en-US; cp ../android/vindienews/docs/icon.png metadata/com.frantzvardman.vindienews/en-US/icon.png
-          mkdir -p metadata/com.frantzvardman.vindievpn/en-US; cp ../android/vindievpn/docs/icon.png metadata/com.frantzvardman.vindievpn/en-US/icon.png
           shots() { T=$(mktemp -d); git clone -q --depth 1 -b "$2" "https://x-access-token:${GT}@github.com/${GITHUB_REPOSITORY}.git" "$T" 2>/dev/null || { echo "::warning::no $2"; return 0; }
             i=1; for f in $3; do [ -f "$T/$f" ] && cp "$T/$f" "metadata/$1/en-US/phoneScreenshots/$i.png" && i=$((i+1)); done; }
           shots com.frantzvardman.safepocket sp-screens "en-1-papers.png en-2-dates.png en-4-guides.png 07-lock.png"
@@ -139,6 +136,7 @@ jobs:
           shots com.safetospend.app sts-screens "normal_1_home.png normal_2_activity.png normal_3_bills.png"
           # Store-quality listing images from the screenshot bot replace the raw test captures where they exist
           for d in ../shop/screens/*/; do [ -d "$d" ] || continue; P=$(basename "$d"); ls "$d"*.png >/dev/null 2>&1 || continue
+            case "$P" in com.frantzvardman.vindievpn|com.frantzvardman.threed) continue ;; esac   # owner-only apps: never in the public catalog
             mkdir -p "metadata/$P/en-US/phoneScreenshots"; rm -f "metadata/$P/en-US/phoneScreenshots/"*.png
             for f in "$d"*.png; do cp "$f" "metadata/$P/en-US/phoneScreenshots/bot-$(basename "$f")"; done; done
           find metadata -name '*.png' | sort
