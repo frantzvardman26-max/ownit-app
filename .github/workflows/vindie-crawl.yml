@@ -2,7 +2,7 @@ name: Vindie Search crawl
 on:
   workflow_dispatch:
   schedule:
-    - cron: '41 */6 * * *'   # every 6 hours
+    - cron: '41 0 * * *'   # once a day, right after the database's daily allowance resets (00:00 UTC)
 # Vindie Search's crawler: reads only the sources Frantz chose, follows each site's robots.txt, one request a second per site,
 # and names itself (VindieBot). What changed goes to the search index; the crawl state stays in the private vault.
 permissions: { contents: read }
@@ -40,7 +40,7 @@ jobs:
       - name: Crawl
         run: |
           npx --yes wrangler@4 r2 object get "fv-app-vault/vindie/state.json.gz" --file state.json.gz --remote >/dev/null 2>&1 || echo "first crawl"
-          python3 vindie/crawl.py state.json.gz state-new.json.gz sources.json out --budget 3000 --minutes 42 | tee ledger.json
+          python3 vindie/crawl.py state.json.gz state-new.json.gz sources.json out --budget 1000 --minutes 30 | tee ledger.json
       - name: Write to the index
         run: |
           for f in out/*.sql; do [ -f "$f" ] || continue; npx --yes wrangler@4 d1 execute shop-downloads --remote --file "$f" >/dev/null || { echo "::error::Index write failed at $f"; exit 1; }; done
