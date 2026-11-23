@@ -15,7 +15,7 @@ jobs:
       GH_TOKEN: ${{ secrets.BUILD_TOKEN }}
     steps:
       - uses: actions/checkout@v5
-        with: {repository: frantzvardman26-max/3D, token: "${{ secrets.BUILD_TOKEN }}", fetch-depth: 400, lfs: false}
+        with: {repository: frantzvardman26-max/3D, token: "${{ secrets.BUILD_TOKEN }}", fetch-depth: 0, lfs: false}
       - name: Tools
         run: sudo apt-get install -y -qq age > /dev/null && pip install -q opentimestamps-client
       - name: Achievements unlocked this week (from the Master Panel's history)
