@@ -1,0 +1,89 @@
+name: 3D trial on a rented GPU (RunPod) - costs money, owner starts it by hand
+# Same jobs as threed-trial.yml, but the model runs on one rented RunPod GPU so the big models can be tested.
+# Money guards:
+#   - Nothing runs on a schedule or a push. Only a manual start.
+#   - The default is a dry run: it only looks up the GPU price and prints what a real run would cost. No pod, no charge.
+#   - A real run needs dry_run = false AND confirm = SPEND AND the hourly price under max_per_hour.
+#   - The pod is deleted at the end of every run, even when a step fails or the run is cancelled, and the job
+#     itself stops after max_minutes.
+# Needs the RUNPOD_API_KEY secret (Frantz adds it himself in the repo settings). The log shows only pass/fail, steps,
+# time and price: no code and no replies.
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run: {description: 'Dry run: price check only, no charge (set false for a real run)', type: boolean, default: true}
+      confirm: {description: 'Type SPEND for a real run', default: ''}
+      max_per_hour: {description: 'Refuse if the GPU costs more than this many dollars an hour', default: '1.50'}
+      max_minutes: {description: 'Hard stop for the whole run, in minutes', default: '60'}
+      gpu: {description: 'RunPod GPU type', default: 'NVIDIA RTX A6000'}
+      model: {description: 'Hugging Face GGUF repo:quant', default: 'unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF:Q4_K_M'}
+      ctx: {description: 'Context length', default: '32768'}
+permissions: {contents: read}
+concurrency: {group: threed-gpu, cancel-in-progress: false}
+jobs:
+  trial:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    env:
+      API: https://api.runpod.io/graphql
+      GPU: ${{ inputs.gpu }}
+    steps:
+      - name: Check the key and the price
+        env: {RUNPOD_API_KEY: "${{ secrets.RUNPOD_API_KEY }}", MAX: "${{ inputs.max_per_hour }}", MIN: "${{ inputs.max_minutes }}"}
+        run: |
+          [ -n "$RUNPOD_API_KEY" ] || { echo "No RUNPOD_API_KEY secret yet. Add it in Settings → Secrets → Actions, then try again."; exit 1; }
+          Q=$(python3 -c "import json,os; print(json.dumps({'query':'query{gpuTypes(input:{id:%s}){id displayName memoryInGb securePrice communityPrice}}' % json.dumps(os.environ['GPU'])}))")
+          R=$(curl -fsS -H "Content-Type: application/json" -H "Authorization: Bearer $RUNPOD_API_KEY" -d "$Q" "$API")
+          PRICE=$(echo "$R" | python3 -c "import json,sys; g=(json.load(sys.stdin).get('data') or {}).get('gpuTypes') or []; p=[x for x in (g[0]['securePrice'] if g else None, g[0]['communityPrice'] if g else None) if x]; print(max(p) if p else '')")
+          [ -n "$PRICE" ] || { echo "RunPod has no price for '$GPU' right now. Pick another GPU type."; exit 1; }
+          echo "GPU: $GPU · about \$$PRICE an hour · a ${MIN}-minute cap means at most about \$$(python3 -c "print(round($PRICE*$MIN/60,2))")"
+          echo "PRICE=$PRICE" >> "$GITHUB_ENV"
+          python3 -c "import sys; sys.exit(0 if float('$PRICE') <= float('$MAX') else 1)" || { echo "Over the \$$MAX an hour limit. Not starting."; exit 1; }
+      - name: Stop here unless this is a real run
+        if: ${{ inputs.dry_run || inputs.confirm != 'SPEND' }}
+        run: echo "Dry run (or confirm was not SPEND). Nothing was rented and nothing was charged."
+      - uses: actions/checkout@v5
+        if: ${{ !inputs.dry_run && inputs.confirm == 'SPEND' }}
+        with: {repository: frantzvardman26-max/3D, token: "${{ secrets.BUILD_TOKEN }}", fetch-depth: 1}
+      - name: Rent the GPU and start the engine (open-source llama.cpp)
+        if: ${{ !inputs.dry_run && inputs.confirm == 'SPEND' }}
+        timeout-minutes: 30
+        env: {RUNPOD_API_KEY: "${{ secrets.RUNPOD_API_KEY }}", MODEL: "${{ inputs.model }}", CTX: "${{ inputs.ctx }}"}
+        run: |
+          KEY=$(openssl rand -hex 24); echo "::add-mask::$KEY"; echo "THREED_MODEL_KEY=$KEY" >> "$GITHUB_ENV"
+          Q=$(KEY="$KEY" python3 - <<'PY'
+          import json, os
+          env = [{'key': k, 'value': v} for k, v in {'LLAMA_ARG_HF_REPO': os.environ['MODEL'], 'LLAMA_ARG_CTX_SIZE': os.environ['CTX'], 'LLAMA_ARG_N_GPU_LAYERS': '999',
+                 'LLAMA_ARG_JINJA': '1', 'LLAMA_ARG_HOST': '0.0.0.0', 'LLAMA_ARG_PORT': '8080', 'LLAMA_API_KEY': os.environ['KEY']}.items()]
+          inp = {'cloudType': 'ALL', 'gpuCount': 1, 'gpuTypeId': os.environ['GPU'], 'name': 'threed-trial', 'imageName': 'ghcr.io/ggml-org/llama.cpp:server-cuda',
+                 'containerDiskInGb': 80, 'volumeInGb': 0, 'ports': '8080/http', 'env': env}
+          lit = json.dumps(inp)
+          for k in inp: lit = lit.replace('"%s":' % k, '%s:' % k)
+          lit = lit.replace('"cloudType": "ALL"', 'cloudType: ALL').replace('cloudType: "ALL"', 'cloudType: ALL')
+          for k in ('key', 'value'): lit = lit.replace('"%s":' % k, '%s:' % k)
+          print(json.dumps({'query': 'mutation{podFindAndDeployOnDemand(input:%s){id costPerHr}}' % lit}))
+          PY
+          )
+          R=$(curl -fsS -H "Content-Type: application/json" -H "Authorization: Bearer $RUNPOD_API_KEY" -d "$Q" "$API")
+          POD=$(echo "$R" | python3 -c "import json,sys; d=json.load(sys.stdin); p=(d.get('data') or {}).get('podFindAndDeployOnDemand'); print(p['id'] if p else '')")
+          [ -n "$POD" ] || { echo "RunPod did not start a pod: $(echo "$R" | python3 -c "import json,sys; print([e.get('message') for e in json.load(sys.stdin).get('errors',[])])")"; exit 1; }
+          echo "POD=$POD" >> "$GITHUB_ENV"; echo "pod started"
+          URL="https://$POD-8080.proxy.runpod.net"; echo "THREED_MODEL_URL=$URL/v1" >> "$GITHUB_ENV"
+          for i in $(seq 1 150); do curl -fs -H "Authorization: Bearer $KEY" "$URL/v1/models" > /dev/null && { echo "engine up after $((i*10))s"; exit 0; }; sleep 10; done
+          echo "engine did not come up in 25 minutes"; exit 1
+      - name: 3D does the jobs
+        if: ${{ !inputs.dry_run && inputs.confirm == 'SPEND' }}
+        timeout-minutes: ${{ fromJSON(inputs.max_minutes) }}
+        env: {THREED_MODEL: "${{ inputs.model }} on ${{ inputs.gpu }}"}
+        run: |
+          git config --global user.email ci@example.com; git config --global user.name ci
+          python3 server3d/tests/trial.py
+      - name: Delete the pod (always)
+        if: ${{ always() && env.POD != '' }}
+        env: {RUNPOD_API_KEY: "${{ secrets.RUNPOD_API_KEY }}"}
+        run: |
+          for i in 1 2 3 4 5; do
+            R=$(curl -sS -H "Content-Type: application/json" -H "Authorization: Bearer $RUNPOD_API_KEY" -d "{\"query\":\"mutation{podTerminate(input:{podId:\\\"$POD\\\"})}\"}" "$API")
+            echo "$R" | grep -q '"errors"' || { echo "pod deleted"; exit 0; }; sleep 15
+          done
+          echo "::error::Could not delete pod $POD. Delete it in the RunPod console now so it stops charging."; exit 1
