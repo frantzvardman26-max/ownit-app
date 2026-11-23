@@ -64,4 +64,18 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: npx --yes wrangler@4 r2 object put "fv-app-vault/build/ThreeD.apk" --file ThreeD.apk --remote >/dev/null 2>&1 && echo "Saved to the private app vault" || { echo "::error::Could not save to the private app vault"; exit 1; }
+        run: |
+          npx --yes wrangler@4 r2 object put "fv-app-vault/build/ThreeD.apk" --file ThreeD.apk --remote >/dev/null 2>&1 && echo "Saved to the private app vault" || { echo "::error::Could not save to the private app vault"; exit 1; }
+          # Owner-only Free Lane listing: the file and its listing live only in the private vault (never in the public catalog).
+          # The shop hands the listing to the owner's Free Lane alone (/api/owner-apps); /r/ThreeD.apk serves the file to the owner alone.
+          npx --yes wrangler@4 r2 object put "fv-app-vault/repo/ThreeD.apk" --file ThreeD.apk --remote >/dev/null 2>&1 || { echo "::error::Could not save the Free Lane copy"; exit 1; }
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1); B=$("$BT/aapt2" dump badging ThreeD.apk | head -1)
+          VC=$(echo "$B" | sed -E "s/.* versionCode='([^']+)'.*/\1/"); VN=$(echo "$B" | sed -E "s/.* versionName='([^']+)'.*/\1/")
+          python3 - "$VC" "$VN" "$(sha256sum ThreeD.apk | cut -d' ' -f1)" "$(stat -c%s ThreeD.apk)" <<'PY'
+          import json, sys
+          vc, vn, sha, sz = sys.argv[1:5]
+          json.dump([{"packageName": "com.frantzvardman.threed", "name": "3D", "summary": "The trust's private assistant (owner only)", "authorName": "Frantz Vardman",
+                      "apk": "https://shop.frantzmichaelsthilairevardman.com/r/ThreeD.apk", "sha256": sha, "size": int(sz), "versionCode": int(vc), "versionName": vn,
+                      "minSdkVersion": 33, "icon": "", "screenshots": []}], open("owner-extras.json", "w"))
+          PY
+          npx --yes wrangler@4 r2 object put "fv-app-vault/repo/owner-extras.json" --file owner-extras.json --content-type application/json --remote >/dev/null 2>&1 && echo "Owner-only Free Lane listing saved (version $VN)" || { echo "::error::Could not save the owner listing"; exit 1; }
