@@ -41,6 +41,12 @@ jobs:
         working-directory: android
         run: |
           for i in 1 2 3; do ./gradlew :vindiemaps:testDebugUnitTest --no-daemon && break; [ $i = 3 ] && exit 1; sleep 60; done
+      - name: Backups open with the real age tool
+        run: |
+          sudo apt-get install -y -qq age >/dev/null
+          D=android/vindiemaps/build/agetest
+          for n in small big exact empty; do age -d -i $D/key.txt -o /tmp/$n.out $D/$n.age && cmp $D/$n.bin /tmp/$n.out || { echo "::error::age could not open the $n backup"; exit 1; }; done
+          echo "OK: all test backups decrypt with age"
       - name: Share screen-test screenshots for review (branch vm-screens)
         if: always()
         run: |
