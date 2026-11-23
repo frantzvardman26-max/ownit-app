@@ -48,4 +48,19 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: npx --yes wrangler@4 r2 object put "fv-app-vault/build/VindieVPN.apk" --file VindieVPN.apk --remote >/dev/null 2>&1 && echo "Saved to the vault" || { echo "::error::Could not save to the vault"; exit 1; }
+        run: |
+          npx --yes wrangler@4 r2 object put "fv-app-vault/build/VindieVPN.apk" --file VindieVPN.apk --remote >/dev/null 2>&1 && echo "Saved to the vault" || { echo "::error::Could not save to the vault"; exit 1; }
+          # Owner-only Free Lane listing (Frantz, Nov 22: Vindie VPN stays hidden from everyone but him, like 3D). The file and its listing
+          # live only in the private vault; the shop hands the listing to the owner's Free Lane alone (/api/owner-apps) and /r/VindieVPN.apk
+          # serves the file to the owner alone. It is not in the public catalog.
+          npx --yes wrangler@4 r2 object put "fv-app-vault/repo/VindieVPN.apk" --file VindieVPN.apk --remote >/dev/null 2>&1 || { echo "::error::Could not save the Free Lane copy"; exit 1; }
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1); B=$("$BT/aapt2" dump badging VindieVPN.apk | head -1)
+          VC=$(echo "$B" | sed -E "s/.* versionCode='([^']+)'.*/\1/"); VN=$(echo "$B" | sed -E "s/.* versionName='([^']+)'.*/\1/")
+          python3 - "$VC" "$VN" "$(sha256sum VindieVPN.apk | cut -d' ' -f1)" "$(stat -c%s VindieVPN.apk)" <<'PY'
+          import json, sys
+          vc, vn, sha, sz = sys.argv[1:5]
+          json.dump([{"packageName": "com.frantzvardman.vindievpn", "name": "Vindie VPN", "summary": "Your own private VPN (owner only)", "authorName": "Frantz Vardman",
+                      "apk": "https://shop.frantzmichaelsthilairevardman.com/r/VindieVPN.apk", "sha256": sha, "size": int(sz), "versionCode": int(vc), "versionName": vn,
+                      "minSdkVersion": 26, "icon": "", "screenshots": []}], open("owner-extras-vpn.json", "w"))
+          PY
+          npx --yes wrangler@4 r2 object put "fv-app-vault/repo/owner-extras-vpn.json" --file owner-extras-vpn.json --content-type application/json --remote >/dev/null 2>&1 && echo "Owner-only listing saved" || { echo "::error::Could not save the owner-only listing"; exit 1; }
