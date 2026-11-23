@@ -1,0 +1,48 @@
+name: Vindie Search crawl
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '41 */6 * * *'   # every 6 hours
+# Vindie Search's crawler: reads only the sources Frantz chose, follows each site's robots.txt, one request a second per site,
+# and names itself (VindieBot). What changed goes to the search index; the crawl state stays in the private vault.
+permissions: { contents: read }
+concurrency: { group: vindie-crawl, cancel-in-progress: false }
+jobs:
+  crawl:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          repository: frantzvardman26-max/3D
+          token: ${{ secrets.BUILD_TOKEN }}
+          sparse-checkout: vindie
+      - name: Index tables and sources
+        run: |
+          W="npx --yes wrangler@4"
+          $W d1 execute shop-downloads --remote --file vindie/schema.sql >/dev/null
+          $W d1 execute shop-downloads --remote --json --command "SELECT host, start, trust, max, note FROM vs_sources" > src.json || echo "[]" > src.json
+          python3 - <<'PY'
+          import json
+          raw = json.load(open('src.json')); rows = raw[0]['results'] if isinstance(raw, list) and raw and 'results' in raw[0] else []
+          if not rows:   # first run: the starting sources from the repo, saved so they can be changed from the search page
+              rows = json.load(open('vindie/sources.json'))
+              q = lambda s: "'" + str(s).replace("'", "''") + "'"
+              open('seed.sql', 'w').write("\n".join(f"INSERT OR IGNORE INTO vs_sources (host, start, trust, max, note, added) VALUES ({q(r['host'])},{q(json.dumps(r['start']))},{r['trust']},{r['max']},{q(r.get('note',''))},datetime('now'));" for r in rows))
+          else:
+              for r in rows: r['start'] = json.loads(r['start'] or '[]')
+          json.dump(rows, open('sources.json', 'w')); print(len(rows), 'sources')
+          PY
+          [ -f seed.sql ] && $W d1 execute shop-downloads --remote --file seed.sql >/dev/null || true
+      - name: Crawl
+        run: |
+          npx --yes wrangler@4 r2 object get "fv-app-vault/vindie/state.json.gz" --file state.json.gz --remote >/dev/null 2>&1 || echo "first crawl"
+          python3 vindie/crawl.py state.json.gz state-new.json.gz sources.json out --budget 3000 --minutes 42 | tee ledger.json
+      - name: Write to the index
+        run: |
+          for f in out/*.sql; do [ -f "$f" ] || continue; npx --yes wrangler@4 d1 execute shop-downloads --remote --file "$f" >/dev/null || { echo "::error::Index write failed at $f"; exit 1; }; done
+          npx --yes wrangler@4 r2 object put "fv-app-vault/vindie/state.json.gz" --file state-new.json.gz --remote >/dev/null 2>&1 || { echo "::error::Could not save the crawl state"; exit 1; }
+          echo "Indexed: $(cat ledger.json)"
