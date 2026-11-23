@@ -72,6 +72,8 @@ jobs:
           vc, vn, sha, sz = sys.argv[1:5]
           json.dump([{"packageName": "com.frantzvardman.vindiemaps", "name": "Vindie Maps", "summary": "Your own location history (owner only)", "authorName": "Frantz Vardman",
                       "apk": "https://shop.frantzmichaelsthilairevardman.com/r/VindieMaps.apk", "sha256": sha, "size": int(sz), "versionCode": int(vc), "versionName": vn,
-                      "minSdkVersion": 26, "icon": "", "screenshots": []}], open("owner-extras-maps.json", "w"))
+                      "minSdkVersion": 26, "icon": "https://shop.frantzmichaelsthilairevardman.com/img/app/vindiemaps.png",
+                      "screenshots": ["https://shop.frantzmichaelsthilairevardman.com/img/app/shots/vindiemaps-a.webp"],
+                      "description": "Your own location history, recorded on your phone all day. Points can't be edited or deleted; each one is fingerprinted and chained to the last, so Check proves nothing changed. Save exports a day as GPX with every fingerprint. Map: OpenStreetMap. Nothing leaves your phone."}], open("owner-extras-maps.json", "w"))
           PY
           npx --yes wrangler@4 r2 object put "fv-app-vault/repo/owner-extras-maps.json" --file owner-extras-maps.json --content-type application/json --remote >/dev/null 2>&1 && echo "Owner-only listing saved" || { echo "::error::Could not save the listing"; exit 1; }
