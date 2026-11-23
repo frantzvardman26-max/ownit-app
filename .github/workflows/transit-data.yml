@@ -1,0 +1,43 @@
+name: Vindie Maps transit data (LA Metro, weekly)
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '23 10 * * 1'   # Mondays 2:23 am PT
+# LA Metro publishes its bus and rail timetables as open data ("provided by LA Metro"). This builds the compact database
+# Vindie Maps plans trips with, on the phone. It goes only to the private app vault; the shop hands it to the owner's app alone.
+permissions: { contents: read }
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          repository: frantzvardman26-max/3D
+          token: ${{ secrets.BUILD_TOKEN }}
+          sparse-checkout: android/vindiemaps/tools
+      - name: Download LA Metro bus and rail timetables
+        run: |
+          curl -fsSL -A "VindieMaps-transit/1 (frantzvardman@mail2one.com)" -o bus.zip https://gitlab.com/LACMTA/gtfs_bus/raw/master/gtfs_bus.zip
+          curl -fsSL -A "VindieMaps-transit/1 (frantzvardman@mail2one.com)" -o rail.zip https://gitlab.com/LACMTA/gtfs_rail/raw/master/gtfs_rail.zip
+          ls -la *.zip
+      - name: Build the database
+        run: |
+          python3 android/vindiemaps/tools/build_transit.py transit-la.db bus.zip rail.zip
+          ls -la transit-la.db; gzip -9 -k transit-la.db; ls -la transit-la.db.gz
+          python3 - <<'PY'
+          import json, hashlib, os, sqlite3, time
+          c = sqlite3.connect('transit-la.db')
+          meta = {"built": time.strftime('%Y-%m-%d'), "bytes": os.path.getsize('transit-la.db'), "gzBytes": os.path.getsize('transit-la.db.gz'),
+                  "sha256": hashlib.sha256(open('transit-la.db.gz', 'rb').read()).hexdigest(),
+                  "stops": c.execute('select count(*) from stops').fetchone()[0], "routes": c.execute('select count(*) from routes').fetchone()[0],
+                  "credit": "Transit data provided by LA Metro"}
+          json.dump(meta, open('transit-la.json', 'w')); print(meta)
+          PY
+      - name: Save to the private app vault
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          npx --yes wrangler@4 r2 object put "fv-app-vault/maps/transit-la.db.gz" --file transit-la.db.gz --remote >/dev/null 2>&1 || { echo "::error::Could not save the database"; exit 1; }
+          npx --yes wrangler@4 r2 object put "fv-app-vault/maps/transit-la.json" --file transit-la.json --content-type application/json --remote >/dev/null 2>&1 || { echo "::error::Could not save the info file"; exit 1; }
+          echo "Saved"
