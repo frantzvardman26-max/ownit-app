@@ -10,7 +10,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with: { repository: frantzvardman26-max/3D, token: "${{ secrets.BUILD_TOKEN }}", sparse-checkout: "site-main\nshop" }
-      - run: pip install --quiet pillow && python3 site-main/build.py
+      - run: pip install --quiet pillow && python3 site-main/build.py && python3 shop/tools/no_hire_check.py
       - name: Publish to Cloudflare Pages
         run: |
           cd site-main/dist
