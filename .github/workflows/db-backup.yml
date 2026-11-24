@@ -19,7 +19,22 @@ jobs:
           set -euo pipefail
           sudo apt-get install -y -qq age >/dev/null
           gh api repos/frantzvardman26-max/3D/contents/vault/recipient.txt -q .content | base64 -d > recipient.txt
-          npx --yes wrangler@4 d1 export shop-downloads --remote --output db.sql > out.txt 2>&1 || { echo "export failed"; grep -iE "error" out.txt | head -3 | cut -c1-200; exit 1; }
+          # Search-index tables (SQLite FTS5) can't be exported by D1, and they're rebuilt from the real tables anyway:
+          # back up every real table and leave the index out (fixed Nov 24 after the Nov 24 backup failed).
+          npx --yes wrangler@4 d1 execute shop-downloads --remote --json --command "SELECT name, sql FROM sqlite_master WHERE type='table'" > t.json 2>/dev/null || { echo "couldn't list tables"; exit 1; }
+          python3 - > tables.txt <<'PY'
+          import json
+          rows = json.load(open('t.json'))[0]['results']
+          virt = [r['name'] for r in rows if (r.get('sql') or '').upper().startswith('CREATE VIRTUAL')]
+          shadow = {v + s for v in virt for s in ('_data', '_idx', '_content', '_docsize', '_config')}
+          for r in rows:
+              n = r['name']
+              if n in virt or n in shadow or n.startswith(('sqlite_', '_cf_')): continue
+              print(n)
+          PY
+          echo "tables to back up: $(wc -l < tables.txt) (search index left out: rebuilt from them)"
+          ARGS=(); while read -r t; do ARGS+=(--table "$t"); done < tables.txt
+          npx --yes wrangler@4 d1 export shop-downloads --remote --output db.sql "${ARGS[@]}" > out.txt 2>&1 || { echo "export failed"; grep -iE "error" out.txt | head -3 | cut -c1-200; exit 1; }
           age -R recipient.txt -o db.sql.age db.sql && shred -u db.sql
           D=$(date -u +%F); P="vault/db/$D-shop-db.sql.age"
           SHA=$(gh api "repos/frantzvardman26-max/3D/contents/$P" -q .sha 2>/dev/null || true)
