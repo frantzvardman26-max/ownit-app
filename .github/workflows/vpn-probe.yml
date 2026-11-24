@@ -1,5 +1,8 @@
 name: Vindie VPN probe (server up? which version? codes only, address hidden)
-on: { workflow_dispatch: {} }
+on:
+  workflow_dispatch:
+    inputs:
+      steady: {description: 'Also check every 5 s for 3 minutes (yes/no)', default: 'no'}
 permissions: { contents: read }
 jobs:
   probe:
@@ -16,3 +19,4 @@ jobs:
           for port in 8443 80 22; do timeout 8 bash -c "echo > /dev/tcp/$H/$port" 2>/dev/null && echo "port $port: open" || echo "port $port: no answer"; done
           curl -sk -o /dev/null --max-time 15 "https://$S/health" 2> err.txt; echo "curl says: $(curl -sk -o /dev/null --max-time 15 -w '%{errormsg}' "https://$S/health" | sed "s/$H/[server]/g")"
           code=$(curl -sk -o /dev/null -w '%{http_code}' --max-time 20 -H 'Authorization: Bearer x' "https://$S/api/me" || echo 000); echo "/api/me (bad token) -> HTTP $code (401 = server answering normally)"
+          if [ "${{ inputs.steady }}" = yes ]; then ok=0; bad=0; for i in $(seq 1 36); do c=$(curl -sk -o /dev/null -w '%{http_code}' --max-time 4 "https://$S/health" || true); [ "$c" = 200 ] && ok=$((ok+1)) || bad=$((bad+1)); sleep 1; done; echo "steady: $ok answered, $bad missed (of 36)"; fi
