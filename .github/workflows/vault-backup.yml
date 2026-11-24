@@ -50,7 +50,7 @@ jobs:
           cat > due.sql <<'SQL'
           CREATE TABLE IF NOT EXISTS vault_auto (cat TEXT, at TEXT, note TEXT);
           CREATE TABLE IF NOT EXISTS owner_alerts (id INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT, title TEXT, message TEXT, tags TEXT, click TEXT, seen INTEGER DEFAULT 0);
-          WITH kinds(k, every) AS (VALUES ('recovery',180),('legal',90),('money',30),('screenshots',30),('words',30),('google',120),('people',60)),
+          WITH kinds(k, every) AS (VALUES ('recovery',180),('legal',90),('money',30),('screenshots',30),('words',30),('google',120),('people',60),('family',90)),
           seen(k, at) AS (SELECT cat, MAX(at) FROM vault_auto GROUP BY cat UNION ALL SELECT cat, MAX(at) FROM drop_parts WHERE cat IS NOT NULL GROUP BY cat),
           late AS (SELECT kinds.k FROM kinds LEFT JOIN (SELECT k, MAX(at) at FROM seen GROUP BY k) s ON s.k = kinds.k
                    WHERE s.at IS NULL OR julianday('now') - julianday(s.at) > kinds.every)
