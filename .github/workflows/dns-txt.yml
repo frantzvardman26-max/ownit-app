@@ -1,0 +1,11 @@
+name: DNS check (public mail-safety records only)
+on: { workflow_dispatch: {} }
+permissions: { contents: read }
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          D=frantzmichaelsthilairevardman.com
+          for n in "_dmarc.$D" "$D"; do echo "== $n"; dig +short TXT "$n" | grep -iE 'v=dmarc1|v=spf1' || echo "(none)"; done
+          echo "== MX"; dig +short MX "$D" | wc -l | sed 's/$/ mail servers/'
