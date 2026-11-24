@@ -68,6 +68,7 @@ jobs:
           get VindieAds.apk https://github.com/frantzvardman26-max/ownit-app/releases/download/vindie/VindieAds.apk
           get PalmDistribute.apk https://github.com/frantzvardman26-max/ownit-app/releases/download/palm/PalmDistribute.apk
           get CaveHunt.apk https://shop.frantzmichaelsthilairevardman.com/missing/CaveHunt.apk
+          get PlayerHQ.apk https://shop.frantzmichaelsthilairevardman.com/missing/PlayerHQ.apk
           get MonkeyMoney.apk https://shop.frantzmichaelsthilairevardman.com/missing/MonkeyMoney.apk
           get VindieDungeonCrawler.apk https://shop.frantzmichaelsthilairevardman.com/missing/VindieDungeonCrawler.apk
           get VindieAuthenticator.apk https://shop.frantzmichaelsthilairevardman.com/missing/VindieAuthenticator.apk
@@ -88,6 +89,7 @@ jobs:
           m com.frantzvardman.safepocket Security "Keep your ID and papers safe on your phone" "Encrypted vault, reminders and help guides in English, Spanish and Haitian Creole. No internet permission." "Safe Pocket"
           m com.frantzvardman.crownrush Games "Catch the gold, dodge the bombs" "Bombs & Bullion: a one-thumb arcade game starring 10 animal superheroes. Catch the gold, dodge the bombs, grab the lightning to unleash your hero's power, and beat the Bomb King. Offline." "Bombs & Bullion"
           m com.frantzvardman.cave Games "Riddles, torches and five caves" "Cave Hunt: build your village, raid five story caves, answer riddles before your torch burns out, and earn up to 3 stars a cave. Easy, Medium and Hard." "Cave Hunt"
+          m com.frantzvardman.playerhq Games "Your game, your goals, your next session" "Vindie Player HQ: plan your next session, track your own goals, money, garage and notes for GTA VI or any open-world game. A live session clock in your notifications, shortcuts on the icon, works with no signal. Your data stays on your phone unless you tap Save. Nothing from any game is used; independent and not affiliated with any game publisher. Free while in beta." "Vindie Player HQ"
           m com.frantzvardman.jfstudios Multimedia "Films, trailers and a studio you can order from" "J & F Studios: watch the CHICO: The Creole Crown trailer, see what the studio makes, and ask for a quote on trailers, title cards, music videos and remasters. For members: sign in with your shop account." "J & F Studios"
           m com.frantzvardman.monkey Games "A genius monkey escapes the lab" "Monkey Money: run, jump and blast bananas through 10 stages, grab power-ups, unlock rarer monkeys and beat the lab director's mech." "Monkey Money"
           m com.frantzvardman.vdc Games "BETA · Step into the dark: fight, loot, go deeper" "Vindie Dungeon Crawler (VDC): a first-person dungeon crawler. Pick a Knight, Ranger or Mage, step through torch-lit halls one square at a time, fight monsters, open chests, level up and face a boss every 5th floor. RIZZ22's paintings hang on the walls; TheMarket777 plays the soundtrack. Free while in beta." "Vindie Dungeon Crawler"
@@ -114,7 +116,7 @@ jobs:
           cd fd
           icon() { mkdir -p "metadata/$1/en-US/phoneScreenshots"; cp "../shop/site/img/app/$2.png" "metadata/$1/en-US/icon.png"; }
           icon com.ownit.app ownit; icon com.safetospend.app safetospend; icon com.leadhunter.app leadhunter
-          icon com.frantzvardman.safepocket safepocket; icon com.frantzvardman.crownrush crownrush; icon com.frantzvardman.purebeats purebeats
+          icon com.frantzvardman.safepocket safepocket; icon com.frantzvardman.crownrush crownrush; icon com.frantzvardman.playerhq playerhq; icon com.frantzvardman.purebeats purebeats
           icon com.frantzvardman.signalfire signalfire; icon com.frantzvardman.clearcheck clearcheck; icon com.frantzvardman.rexvoice rexvoice; icon com.frantzvardman.freelane freelane; icon com.frantzvardman.lovly lovly; icon com.frantzvardman.reclaim reclaim; icon com.bayouburgerllc.app bayouburger
           mkdir -p metadata/com.frantzvardman.giants/en-US/phoneScreenshots; cp ../android/giants/docs/icon.png metadata/com.frantzvardman.giants/en-US/icon.png
           for g in cave monkey vdc authenticator vindieid jfstudios; do mkdir -p metadata/com.frantzvardman.$g/en-US/phoneScreenshots; cp ../android/$g/docs/icon.png metadata/com.frantzvardman.$g/en-US/icon.png; done

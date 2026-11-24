@@ -1,0 +1,78 @@
+name: Build Vindie Player HQ
+on:
+  workflow_dispatch:
+# Built here because GitHub Actions is free for public repositories. The code is checked out from the private repo;
+# the finished app goes to the private app vault, and Free Lane lists it for everyone (free while in beta).
+permissions:
+  contents: write
+  actions: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          repository: frantzvardman26-max/3D
+          token: ${{ secrets.BUILD_TOKEN }}
+      - run: echo "APP_BUILD_NUMBER=$((100 + GITHUB_RUN_NUMBER))" >> "$GITHUB_ENV"
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Keep Gradle between builds
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/wrapper/dists
+            ~/.gradle/caches
+          key: gradle-phq-${{ hashFiles('android/gradle/wrapper/gradle-wrapper.properties', 'android/gradle/libs.versions.toml', 'android/playerhq/build.gradle.kts') }}-r1
+          restore-keys: gradle-
+      - name: Build the app
+        working-directory: android
+        run: |
+          sed -i '/aapt2FromMavenOverride/d' gradle.properties || true
+          chmod +x gradlew
+          for try in 1 2 3; do
+            if ./gradlew :playerhq:assembleDebug --no-daemon; then break; fi
+            [ $try = 3 ] && exit 1; echo "Build attempt $try failed, trying again"; sleep 45
+          done
+          cp playerhq/build/outputs/apk/debug/playerhq-debug.apk ../PlayerHQ.apk
+      - name: Tests
+        working-directory: android
+        run: |
+          for i in 1 2 3; do ./gradlew :playerhq:testDebugUnitTest --no-daemon && break; [ $i = 3 ] && exit 1; sleep 60; done
+      - name: Share screen-test screenshots for review (branch phq-screens)
+        if: always()
+        run: |
+          D=android/playerhq/build/screens; [ -d "$D" ] || { echo "No screenshots"; exit 0; }
+          T=$(mktemp -d); cp "$D"/*.png "$T"/ 2>/dev/null || exit 0
+          cd "$T" && git init -q && git checkout -q -b phq-screens && git add -A
+          git -c user.name=ci -c user.email=ci@example.com commit -qm "screens"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" phq-screens || echo "::warning::Couldn't push screenshots"
+      - name: Permission check (no Google services, no accounts, no contacts, no location)
+        run: |
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          P=$("$BT/aapt2" dump permissions PlayerHQ.apk); echo "$P"
+          for bad in GET_ACCOUNTS READ_CONTACTS READ_PHONE_STATE CAMERA RECORD_AUDIO READ_SMS ACCESS_FINE_LOCATION ACCESS_COARSE_LOCATION; do
+            echo "$P" | grep -q "android.permission.$bad" && { echo "::error::Unexpected permission $bad"; exit 1; }
+          done
+          unzip -l PlayerHQ.apk | grep -qi "com/google/android/gms" && { echo "::error::Google Play services found"; exit 1; } || true
+          echo "OK"
+      - name: Save to the private app vault (Free Lane serves it from there)
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx --yes wrangler@4 r2 object put "fv-app-vault/build/PlayerHQ.apk" --file PlayerHQ.apk --remote >/dev/null 2>&1 && echo "Saved" || { echo "::error::Could not save to the vault"; exit 1; }
+      - name: Publish the privacy policy page (public)
+        env:
+          GH_TOKEN: ${{ secrets.BUILD_TOKEN }}
+        run: |
+          REPO=frantzvardman26-max/ownit-app; F=PLAYER_HQ_PRIVACY.md
+          SHA=$(gh api "repos/$REPO/contents/$F" --jq .sha 2>/dev/null || true); echo "$SHA" | grep -Eq '^[0-9a-f]{40}$' || SHA=""
+          NEWB=$(base64 -w0 android/playerhq/docs/PRIVACY.md); OLDB=$(gh api "repos/$REPO/contents/$F" --jq .content 2>/dev/null | tr -d '\n' || true)
+          if [ "$NEWB" != "$OLDB" ]; then gh api -X PUT "repos/$REPO/contents/$F" -f message="Player HQ privacy policy" -f content="$NEWB" ${SHA:+-f sha="$SHA"} >/dev/null || echo "::warning::Couldn't publish the policy"; fi
+      - name: Refresh the F-Droid library so phones see this update
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run fdroid-repo.yml -R "$GITHUB_REPOSITORY" || echo "::warning::Couldn't start the F-Droid refresh"
