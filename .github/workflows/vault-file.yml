@@ -1,0 +1,35 @@
+name: Put a locked file from the private repo into Vault Drop
+on:
+  workflow_dispatch:
+    inputs:
+      path: {description: 'Path of an age-locked file in the private repo (vault/...tar.age)', required: true}
+      name: {description: 'Name it shows under in Vault Drop', required: true}
+      cat: {description: 'Vault checklist kind (family, legal, money, ...)', required: true}
+      sha: {description: 'SHA-256 of the unlocked contents', required: true}
+      size: {description: 'Size of the unlocked contents in bytes', required: true}
+# The file is already locked with the vault key before it gets here; this only copies it into the vault's Vault Drop
+# area so it shows on Vault Drop and the Vault checklist. Nothing readable passes through, and the log shows only the name.
+permissions: { contents: read }
+jobs:
+  put:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      P: ${{ inputs.path }}
+      N: ${{ inputs.name }}
+      C: ${{ inputs.cat }}
+      S: ${{ inputs.sha }}
+      Z: ${{ inputs.size }}
+    steps:
+      - uses: actions/checkout@v5
+        with: { repository: frantzvardman26-max/3D, token: "${{ secrets.BUILD_TOKEN }}", sparse-checkout: vault }
+      - run: |
+          set -e
+          [[ "$P" =~ ^vault/[A-Za-z0-9._-]+\.age$ ]] && [[ "$N" =~ ^[A-Za-z0-9._-]{1,140}$ ]] && [[ "$C" =~ ^[a-z]{1,20}$ ]] && [[ "$S" =~ ^[0-9a-f]{64}$ ]] && [[ "$Z" =~ ^[0-9]+$ ]] || { echo "::error::bad input"; exit 1; }
+          [ "$(head -c 22 "$P")" = "age-encryption.org/v1" ] || head -c 21 "$P" | grep -q "age-encryption.org/v1" || { echo "::error::not a locked file"; exit 1; }
+          npx --yes wrangler@4 r2 object put "fv-app-vault/drop/$N/00000.age" --file "$P" --remote >/dev/null 2>&1 || { echo "::error::Could not store"; exit 1; }
+          B=$(stat -c%s "$P")
+          printf "CREATE TABLE IF NOT EXISTS drop_parts (name TEXT, part INTEGER, parts INTEGER, size INTEGER, bytes INTEGER, sha TEXT, at TEXT, cat TEXT, PRIMARY KEY (name, part));\nINSERT OR REPLACE INTO drop_parts (name, part, parts, size, bytes, sha, at, cat) VALUES ('%s', 0, 1, %s, %s, '%s', strftime('%%Y-%%m-%%dT%%H:%%M:%%fZ','now'), '%s');\n" "$N" "$Z" "$B" "$S" "$C" > row.sql
+          npx --yes wrangler@4 d1 execute shop-downloads --remote --file row.sql >/dev/null
+          echo "In Vault Drop as $N ($C)"
