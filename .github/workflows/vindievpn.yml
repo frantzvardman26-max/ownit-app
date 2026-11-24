@@ -49,4 +49,5 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: echo "Not saved to the vault: the Vindie VPN in Free Lane comes from vindievpn-app.yml, which carries the signed server update"
+        run: |
+          echo "Not saved to the vault: the Vindie VPN in Free Lane comes from vindievpn-app.yml, which carries the signed server update"
