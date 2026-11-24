@@ -27,5 +27,5 @@ jobs:
         run: |
           python3 .github/post_notice.py
           npx -y wrangler@3 d1 execute shop-downloads --remote --file notice.sql
-          echo "--- Notices now:"; npx -y wrangler@3 d1 execute shop-downloads --remote --json --command "SELECT id, at, title, app, active FROM beta_notices ORDER BY id" | jq -r '.[0].results[] | "\(.id) \(.at) \(.app) active=\(.active) | \(.title)"'
-          echo "--- Active testers who will see it:"; npx -y wrangler@3 d1 execute shop-downloads --remote --json --command "SELECT name FROM beta_testers WHERE status = 'active'" | jq -r '.[0].results[] | .name'
+          echo "--- Notices now:"; npx -y wrangler@3 d1 execute shop-downloads --remote --json --command "SELECT id, at, title, app, active FROM beta_notices ORDER BY id" | jq -r '"\(.[0].results | map(select(.active == 1)) | length) active notices"'   # this log is public: counts only
+          echo "--- Testers who will see it:"; npx -y wrangler@3 d1 execute shop-downloads --remote --json --command "SELECT COUNT(*) n FROM beta_testers WHERE status = 'active'" | jq -r '"\(.[0].results[0].n) active testers"'   # names stay in the Master Panel, never in this public log

@@ -35,4 +35,4 @@ jobs:
           npx -y wrangler@3 d1 execute shop-downloads --remote --command "CREATE TABLE IF NOT EXISTS vindie_ads (id INTEGER PRIMARY KEY AUTOINCREMENT, code TEXT UNIQUE, key TEXT, biz TEXT, email TEXT, headline TEXT, body TEXT, url TEXT, img TEXT, tier TEXT, weeks INTEGER DEFAULT 0, status TEXT, created TEXT, starts TEXT, ends TEXT, session TEXT, note TEXT)"
           python3 .github/vindie_comp.py
           npx -y wrangler@3 d1 execute shop-downloads --remote --file comp.sql
-          npx -y wrangler@3 d1 execute shop-downloads --remote --json --command "SELECT id, biz, tier, status, starts, ends, note FROM vindie_ads WHERE status = 'running'" | jq -r '.[0].results[] | "\(.id) \(.biz) \(.tier) \(.status) until \(.ends) \(.note)"'
+          npx -y wrangler@3 d1 execute shop-downloads --remote --json --command "SELECT COUNT(*) n FROM vindie_ads WHERE status = 'running'" | jq -r '"\(.[0].results[0].n) ads running"'   # public log: counts only, business names stay private
