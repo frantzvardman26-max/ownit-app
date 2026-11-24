@@ -15,7 +15,7 @@ jobs:
       - run: |
           set +e
           echo "$PUB" | base64 -d > pub.pem
-          { for t in 1d 7d; do echo "== $t"; npx --yes wrangler@4 d1 insights shop-downloads --timePeriod $t --sort-type sum --sort-by reads --limit 25 --json 2>&1; done
+          { for db in shop-downloads twin-db; do for t in 1d; do echo "== $db $t"; npx --yes wrangler@4 d1 insights $db --timePeriod $t --sort-type sum --sort-by reads --limit 25 --json 2>&1; done; done
             echo "== databases"; npx --yes wrangler@4 d1 list --json 2>&1; } > out.json
           echo "bytes: $(wc -c < out.json)"
           openssl rand -out k.bin 32
