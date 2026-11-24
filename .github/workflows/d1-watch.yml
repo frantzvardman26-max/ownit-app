@@ -1,0 +1,24 @@
+name: Database read watch (warns before the free daily read limit; log shows totals only)
+on:
+  schedule: [{cron: '17 * * * *'}]
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - run: |
+          set +e
+          total=0
+          for db in shop-downloads twin-db; do
+            n=$(npx --yes wrangler@4 d1 insights $db --timePeriod 1d --sort-type sum --sort-by reads --limit 100 --json 2>/dev/null | python3 -c "import sys,json;t=sys.stdin.read();print(sum(x.get('totalRowsRead',0) for x in json.loads(t[t.index('['):])))" 2>/dev/null)
+            echo "$db rows read (last 24h): ${n:-unknown}"; total=$((total + ${n:-0}))
+          done
+          echo "total: $total of 5000000"
+          if [ "$total" -gt 3500000 ]; then
+            pct=$((total / 50000))
+            npx --yes wrangler@4 d1 execute shop-downloads --remote --command "CREATE TABLE IF NOT EXISTS owner_alerts (id INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT, title TEXT, message TEXT, tags TEXT, click TEXT, seen INTEGER DEFAULT 0); INSERT INTO owner_alerts (at, title, message, tags, click) VALUES (strftime('%Y-%m-%dT%H:%M:%SZ','now'), 'Database reads at ${pct}% of the free daily limit', 'The last 24 hours used ${total} of 5,000,000 free reads. At 100% the site stops reading until midnight UTC (4 pm LA). Tell Claude to find what is reading so much.', 'warning', 'https://shop.frantzmichaelsthilairevardman.com/portfolio');" >/dev/null 2>&1 && echo "warning saved to the owner alerts"
+          fi
