@@ -1,0 +1,77 @@
+name: Build Vindie Keys (family password manager, owner only for now)
+on:
+  workflow_dispatch:
+# Built here because GitHub Actions is free for public repositories. The code is checked out from the private repo;
+# the finished app goes only to the private app vault; only the owner sees it in Free Lane.
+permissions:
+  contents: write
+  actions: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          repository: frantzvardman26-max/3D
+          token: ${{ secrets.BUILD_TOKEN }}
+      - run: echo "APP_BUILD_NUMBER=$((100 + GITHUB_RUN_NUMBER))" >> "$GITHUB_ENV"
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Keep Gradle between builds
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/wrapper/dists
+            ~/.gradle/caches
+          key: gradle-vk-${{ hashFiles('android/gradle/wrapper/gradle-wrapper.properties', 'android/gradle/libs.versions.toml', 'android/vindiekeys/build.gradle.kts') }}-r1
+          restore-keys: gradle-
+      - name: Build the app
+        working-directory: android
+        run: |
+          sed -i '/aapt2FromMavenOverride/d' gradle.properties || true
+          chmod +x gradlew
+          for try in 1 2 3; do
+            if ./gradlew :vindiekeys:assembleDebug --no-daemon; then break; fi
+            [ $try = 3 ] && exit 1; echo "Build attempt $try failed, trying again"; sleep 45
+          done
+          cp vindiekeys/build/outputs/apk/debug/vindiekeys-debug.apk ../VindieKeys.apk
+      - name: Tests
+        working-directory: android
+        run: |
+          for i in 1 2 3; do ./gradlew :vindiekeys:testDebugUnitTest --no-daemon && break; [ $i = 3 ] && exit 1; sleep 60; done
+      - name: Share screen-test screenshots for review (branch vk-screens)
+        if: always()
+        run: |
+          D=android/vindiekeys/build/screens; [ -d "$D" ] || { echo "No screenshots"; exit 0; }
+          T=$(mktemp -d); cp "$D"/*.png "$T"/ 2>/dev/null || exit 0
+          cd "$T" && git init -q && git checkout -q -b vk-screens && git add -A
+          git -c user.name=ci -c user.email=ci@example.com commit -qm "screens"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" vk-screens || echo "::warning::Couldn't push screenshots"
+      - name: Permission check (no Google services, no accounts, no contacts)
+        run: |
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          P=$("$BT/aapt2" dump permissions VindieKeys.apk); echo "$P"
+          for bad in INTERNET GET_ACCOUNTS READ_CONTACTS READ_PHONE_STATE CAMERA RECORD_AUDIO READ_SMS ACCESS_FINE_LOCATION; do
+            echo "$P" | grep -q "android.permission.$bad" && { echo "::error::Unexpected permission $bad"; exit 1; }
+          done
+          unzip -l VindieKeys.apk | grep -qi "com/google/android/gms" && { echo "::error::Google Play services found"; exit 1; } || true
+          echo "OK"
+      - name: Save to the private app vault (owner-only listing)
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          npx --yes wrangler@4 r2 object put "fv-app-vault/build/VindieKeys.apk" --file VindieKeys.apk --remote >/dev/null 2>&1 || { echo "::error::Could not save to the vault"; exit 1; }
+          npx --yes wrangler@4 r2 object put "fv-app-vault/repo/VindieKeys.apk" --file VindieKeys.apk --remote >/dev/null 2>&1 || { echo "::error::Could not save the Free Lane copy"; exit 1; }
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1); B=$("$BT/aapt2" dump badging VindieKeys.apk | head -1)
+          VC=$(echo "$B" | sed -E "s/.* versionCode='([^']+)'.*/\1/"); VN=$(echo "$B" | sed -E "s/.* versionName='([^']+)'.*/\1/")
+          python3 - "$VC" "$VN" "$(sha256sum VindieKeys.apk | cut -d' ' -f1)" "$(stat -c%s VindieKeys.apk)" <<'PY'
+          import json, sys
+          vc, vn, sha, sz = sys.argv[1:5]
+          json.dump([{"packageName": "com.frantzvardman.vindiekeys", "name": "Vindie Keys", "summary": "The family password manager (sealed, no internet)", "authorName": "Frantz Vardman",
+                      "apk": "https://shop.frantzmichaelsthilairevardman.com/r/VindieKeys.apk", "sha256": sha, "size": int(sz), "versionCode": int(vc), "versionName": vn,
+                      "minSdkVersion": 26, "icon": "https://shop.frantzmichaelsthilairevardman.com/img/app/vindiekeys.png", "screenshots": [], "description": "Vindie Keys: passwords, PINs and recovery codes sealed on your phone with your passphrase and a paper recovery key. Bulk import from any notepad or Bitwarden. No internet permission at all."}], open("owner-extras-keys.json", "w"))
+          PY
+          npx --yes wrangler@4 r2 object put "fv-app-vault/repo/owner-extras-keys.json" --file owner-extras-keys.json --content-type application/json --remote >/dev/null 2>&1 && echo "Owner-only listing saved" || { echo "::error::Could not save the listing"; exit 1; }
