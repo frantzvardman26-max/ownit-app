@@ -3,7 +3,7 @@ on:
   schedule: [{cron: '17 * * * *'}]
   workflow_dispatch:
 # Every hour Prism plays every live game at once (Cave Hunt: the village + a different cave each hour; Giants & Guns, Bombs & Bullion upright,
-# Monkey Money) through its 3 bands with brand-new chaos seeds, so over a day it tries thousands of tap patterns nobody has tried. Game server calls are faked, so it never posts scores or touches real data.
+# Monkey Money, Vindie Dungeon Crawler) through its 3 bands with brand-new chaos seeds, so over a day it tries thousands of tap patterns nobody has tried. Game server calls are faked, so it never posts scores or touches real data.
 # A hot spot fails this run (GitHub emails the owner). Details are encrypted: this repo is public.
 permissions: {contents: read}
 jobs:
@@ -18,6 +18,7 @@ jobs:
           - {game: giants, path: /giants/, portrait: ''}
           - {game: bombs, path: /play/, portrait: '1'}
           - {game: monkey, path: /monkey/, portrait: ''}
+          - {game: vdc, path: /vdc/, portrait: ''}
     steps:
       - uses: actions/checkout@v5
         with: {repository: frantzvardman26-max/3D, token: "${{ secrets.BUILD_TOKEN }}", sparse-checkout: shop/tools/twin}
