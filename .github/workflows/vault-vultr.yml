@@ -1,0 +1,21 @@
+name: Put the Vultr key in Frantz's vault (one time)
+# Frantz asked Nov 25: keep a copy of the Vultr API key in his own vault. It's encrypted on the runner with age to his
+# public key (vault/recipient.txt) and committed to the private repo; only his offline vault key opens it. Never printed.
+on: { workflow_dispatch: {} }
+permissions: { contents: read }
+jobs:
+  vault:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with: { repository: frantzvardman26-max/3D, token: "${{ secrets.BUILD_TOKEN }}", sparse-checkout: vault/recipient.txt, sparse-checkout-cone-mode: false }
+      - env: { VK: "${{ secrets.VULTR_API_KEY }}", GT: "${{ secrets.BUILD_TOKEN }}" }
+        run: |
+          [ -n "$VK" ] || { echo "::error::No VULTR_API_KEY secret"; exit 1; }
+          sudo apt-get -qq install -y age >/dev/null
+          F=vault/2026-11-25-vultr-api-key.age
+          printf 'Vultr API key (Personal Access Token), saved Nov 25 2026 for the Vindie VPN server.\n%s\n' "$VK" | age -R vault/recipient.txt -o "$F"
+          echo "encrypted: $(stat -c %s "$F") bytes"
+          B=$(base64 -w0 "$F"); jq -n --arg c "$B" '{message:"Vault: Vultr API key (encrypted to Frantz)",content:$c}' > body.json
+          code=$(curl -s -o /dev/null -w '%{http_code}' -X PUT -H "Authorization: Bearer $GT" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/frantzvardman26-max/3D/contents/$F" --data @body.json)
+          echo "saved to the private repo: HTTP $code"; [ "$code" = 201 ] || [ "$code" = 200 ]
