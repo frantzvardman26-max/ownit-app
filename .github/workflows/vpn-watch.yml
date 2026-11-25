@@ -1,0 +1,48 @@
+name: Vindie VPN watch (restarts the server if it stops answering)
+# Every 15 minutes: checks the VPN server from outside. If it fails 3 checks in a row (about 2 minutes), it asks Vultr to restart it.
+# At most one restart every 2 hours, so a real outage never turns into a restart loop. Logs show results only; the address and key stay hidden.
+# Needs the repo secret VULTR_API_KEY (Frantz adds it himself in GitHub settings; it is never printed).
+on:
+  schedule: [{ cron: '*/15 * * * *' }]
+  workflow_dispatch:
+    inputs:
+      test: {description: 'Only check the Vultr key works (no restart): yes/no', default: 'no'}
+permissions: { contents: read, actions: read }
+concurrency: { group: vpn-watch, cancel-in-progress: false }
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with: { repository: frantzvardman26-max/3D, token: "${{ secrets.BUILD_TOKEN }}", sparse-checkout: .github/workflows/server-backup.yml, sparse-checkout-cone-mode: false }
+      - name: Check the server
+        id: check
+        run: |
+          S=$(grep -oE 'SERVER: *[0-9.]+:[0-9]+' .github/workflows/server-backup.yml | head -1 | sed 's/SERVER: *//'); H=${S%:*}; echo "::add-mask::$S"; echo "::add-mask::$H"
+          echo "host=$H" >> $GITHUB_OUTPUT
+          bad=0; for i in 1 2 3; do c=$(curl -sk -o /dev/null -w '%{http_code}' --max-time 20 "https://$S/health" || true); echo "check $i: HTTP ${c:-none}"; [ "$c" = 200 ] && { bad=0; break; }; bad=$((bad+1)); sleep 30; done
+          echo "down=$([ $bad -ge 3 ] && echo yes || echo no)" >> $GITHUB_OUTPUT
+          [ $bad -ge 3 ] && echo "::warning::Server did not answer 3 checks in a row" || echo "Server is answering."
+      - name: Recent restart?
+        id: recent
+        if: steps.check.outputs.down == 'yes' || inputs.test == 'yes'
+        uses: actions/cache/restore@v4
+        with: { path: .vpn-restart, key: "vpn-restart-${{ github.run_id }}", restore-keys: vpn-restart- , lookup-only: true }
+      - name: Restart through Vultr
+        if: steps.check.outputs.down == 'yes' || inputs.test == 'yes'
+        env: { VK: "${{ secrets.VULTR_API_KEY }}", H: "${{ steps.check.outputs.host }}", TEST: "${{ inputs.test }}", HIT: "${{ steps.recent.outputs.cache-matched-key }}" }
+        run: |
+          [ -n "$VK" ] || { echo "::warning::No VULTR_API_KEY secret yet, so I can't restart the server. Add it in GitHub settings."; exit 0; }
+          code=$(curl -s -o inst.json -w '%{http_code}' -H "Authorization: Bearer $VK" "https://api.vultr.com/v2/instances?per_page=100")
+          [ "$code" = 200 ] || { echo "::error::Vultr said HTTP $code (401 = key wrong, 403 = the key's Access Control doesn't allow GitHub: set it to allow all IPv4)"; exit 1; }
+          ID=$(jq -r --arg ip "$H" '.instances[] | select(.main_ip == $ip) | .id' inst.json | head -1); echo "::add-mask::$ID"
+          [ -n "$ID" ] || { echo "::error::The key works, but no server with the VPN address is on this Vultr account."; exit 1; }
+          echo "Vultr key works and the VPN server was found. Status: $(jq -r --arg ip "$H" '.instances[] | select(.main_ip == $ip) | .power_status + " / " + .server_status' inst.json)"
+          [ "$TEST" = yes ] && { echo "Test only: no restart."; exit 0; }
+          if [ -n "$HIT" ] && [ "$(( $(date +%s) - $(echo "$HIT" | grep -oE '[0-9]{10}$' || echo 0) ))" -lt 7200 ]; then echo "::warning::Already restarted in the last 2 hours. Leaving it for Frantz."; exit 0; fi
+          c=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H "Authorization: Bearer $VK" "https://api.vultr.com/v2/instances/$ID/reboot"); echo "restart asked: HTTP $c (204 = accepted)"
+          mkdir -p .vpn-restart && date +%s > .vpn-restart/at && echo "KEY=vpn-restart-$(date +%s)" >> $GITHUB_ENV
+      - name: Remember the restart
+        if: env.KEY != ''
+        uses: actions/cache/save@v4
+        with: { path: .vpn-restart, key: "${{ env.KEY }}" }
