@@ -34,7 +34,7 @@ jobs:
         run: |
           [ -n "$VK" ] || { echo "::warning::No VULTR_API_KEY secret yet, so I can't restart the server. Add it in GitHub settings."; exit 0; }
           code=$(curl -s -o inst.json -w '%{http_code}' -H "Authorization: Bearer $VK" "https://api.vultr.com/v2/instances?per_page=100")
-          [ "$code" = 200 ] || { echo "::error::Vultr said HTTP $code (401 = key wrong, 403 = the key's Access Control doesn't allow GitHub: set it to allow all IPv4)"; exit 1; }
+          [ "$code" = 200 ] || { echo "Vultr says: $(jq -r '.error // empty' inst.json 2>/dev/null | head -c 200)"; echo "::error::Vultr said HTTP $code (401 = key wrong, 403 = the key's Access Control doesn't allow GitHub: set it to allow all IPv4)"; exit 1; }
           ID=$(jq -r --arg ip "$H" '.instances[] | select(.main_ip == $ip) | .id' inst.json | head -1); echo "::add-mask::$ID"
           [ -n "$ID" ] || { echo "::error::The key works, but no server with the VPN address is on this Vultr account."; exit 1; }
           echo "Vultr key works and the VPN server was found. Status: $(jq -r --arg ip "$H" '.instances[] | select(.main_ip == $ip) | .power_status + " / " + .server_status' inst.json)"
