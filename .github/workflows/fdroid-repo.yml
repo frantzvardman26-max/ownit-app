@@ -128,6 +128,9 @@ jobs:
           shots com.frantzvardman.safepocket sp-screens "en-1-papers.png en-2-dates.png en-4-guides.png 07-lock.png"
           shots com.frantzvardman.crownrush cr-screens "cr-1-title.png cr-2-playing.png cr-4b-hero-profile.png cr-7-roster.png"
           shots com.frantzvardman.giants gg-screens "gg-1-title.png gg-2-playing.png gg-3-powerup.png gg-4-giant.png"
+          # The five games use the launch pictures from the games pages (fresh for Thanksgiving 1.0).
+          for pair in vdc:vdc monkey:monkey cave:cave giants:giants crownrush:bombs; do id=${pair%%:*}; g=${pair##*:}; d=metadata/com.frantzvardman.$id/en-US/phoneScreenshots
+            ls ../shop/site/games/shots/$g-*.jpg >/dev/null 2>&1 || continue; mkdir -p $d; rm -f $d/*; i=1; for f in ../shop/site/games/shots/$g-*.jpg; do cp "$f" "$d/$i.jpg"; i=$((i+1)); done; done
           shots com.frantzvardman.purebeats pb-screens "pb-1-home.png"
           shots com.frantzvardman.signalfire sf-screens "sf-1-nearby.png sf-2-supplies.png sf-3-places.png sf-4-aid.png"
           shots com.frantzvardman.clearcheck cc-screens "cc-1-home-empty.png cc-2-question.png cc-3-home-scored.png cc-4-report.png"
