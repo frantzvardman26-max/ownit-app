@@ -7,12 +7,17 @@ on:
   workflow_dispatch:
     inputs:
       test: {description: 'Only check the Vultr key works (no restart): yes/no', default: 'no'}
+      setup: {description: 'Copy the Vultr key to the shop (one time): yes/no', default: 'no'}
 permissions: { contents: read, actions: read }
 concurrency: { group: vpn-watch, cancel-in-progress: false }
 jobs:
   watch:
     runs-on: ubuntu-latest
     steps:
+      - name: One-time setup, copy the key to the shop's Cloudflare secrets (Frantz asked Nov 25; never printed)
+        if: inputs.setup == 'yes'
+        env: { VK: "${{ secrets.VULTR_API_KEY }}", CLOUDFLARE_API_TOKEN: "${{ secrets.CLOUDFLARE_API_TOKEN }}", CLOUDFLARE_ACCOUNT_ID: "${{ secrets.CLOUDFLARE_ACCOUNT_ID }}" }
+        run: printf '%s' "$VK" | npx --yes wrangler@3 pages secret put VULTR_API_KEY --project-name frantz-vardman-shop >/dev/null 2>&1 && echo "Key copied to the shop." || { echo "::error::Couldn't copy the key"; exit 1; }
       - uses: actions/checkout@v5
         with: { repository: frantzvardman26-max/3D, token: "${{ secrets.BUILD_TOKEN }}", sparse-checkout: .github/workflows/server-backup.yml, sparse-checkout-cone-mode: false }
       - name: Check the server
