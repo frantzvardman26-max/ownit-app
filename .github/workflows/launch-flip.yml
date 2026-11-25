@@ -1,0 +1,63 @@
+name: Thanksgiving game launch (opens game sales and drops the beta wording, by the clock)
+# Frantz, Nov 24 2026: all games come out Thanksgiving Day. Most of the launch already flips by itself in code at 12 am Los Angeles
+# (app list, Mythics checkout, fresh start). This does the parts that live in files, so the launch doesn't depend on anyone being awake:
+#   - opens the Founder's Pack and Mythics shop pages (removes their hold);
+#   - the games page says all five are out;
+#   - the app library listings for the games lose "BETA" and "Free while in beta", then the library rebuilds.
+on:
+  schedule: [{cron: '5 8 26 11 *'}]   # Nov 26, 08:05 UTC = 12:05 am in Los Angeles
+  workflow_dispatch:
+    inputs:
+      dry_run: {description: 'yes = change nothing, only check access', required: false, default: 'yes'}
+permissions: {contents: write, actions: write}
+jobs:
+  flip:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.BUILD_TOKEN }}
+      DRY: ${{ github.event_name == 'schedule' && 'no' || inputs.dry_run }}
+    steps:
+      - name: Only in 2026
+        run: '[ "$(date -u +%Y)" = "2026" ] || [ "$DRY" = "yes" ] || { echo "Not 2026: nothing to do"; exit 1; }'
+      - uses: actions/checkout@v5
+        with: {path: app}
+      - uses: actions/checkout@v5
+        with: {repository: frantzvardman26-max/3D, token: "${{ secrets.BUILD_TOKEN }}", path: three}
+      - name: Open the game sales and update the games page (3D repo)
+        working-directory: three
+        run: |
+          python3 - <<'EOF'
+          import json, re
+          p = 'shop/shop.config.json'; c = json.load(open(p)); n = 0
+          for x in c['products']:
+              if x['id'] in ('founders', 'mythics-all') or x['id'].startswith('mythic-'):
+                  if x.pop('hold', None): n += 1
+                  x.pop('holdWhy', None)
+          json.dump(c, open(p, 'w'), indent=2, ensure_ascii=False)
+          g = 'shop/tools/make_game_pages.py'; s = open(g).read()
+          s = s.replace("dict(id='vdc', soon=True, ", "dict(id='vdc', ")
+          s = s.replace("All five come out on Thanksgiving Day, Nov 26.", "All five are out now, free.")
+          s = s.replace("All five come out on Thanksgiving Day, Nov 26. Until then, play right in your browser", "All five are out now, free: play right in your browser")
+          open(g, 'w').write(s)
+          print('opened', n, 'products')
+          EOF
+          python3 shop/tools/make_game_pages.py
+          git config user.name "Frantz Vardman"; git config user.email "frantzvardman26-max@users.noreply.github.com"
+          git add -A shop/shop.config.json shop/tools/make_game_pages.py shop/site/games
+          git commit -qm "Thanksgiving launch: open the Founder's Pack and Mythics, games page says all five are out" || echo "nothing to commit"
+          if [ "$DRY" = "yes" ]; then git push --dry-run && echo "dry run: push access OK"; else git push && gh workflow run auto-build.yml --repo frantzvardman26-max/ownit-app --ref main; fi
+      - name: App library listings lose the beta wording (this repo)
+        working-directory: app
+        run: |
+          python3 - <<'EOF'
+          import re
+          p = '.github/workflows/fdroid-repo.yml'; s = open(p).read(); out = []
+          for line in s.split('\n'):
+              if re.match(r'\s*m com\.frantzvardman\.(crownrush|giants|cave|monkey|vdc) ', line):
+                  line = line.replace('"BETA · ', '"').replace(' Free while in beta.', ' Free.').replace('Free while in beta', 'Free')
+              out.append(line)
+          open(p, 'w').write('\n'.join(out))
+          EOF
+          git config user.name "Frantz Vardman"; git config user.email "frantzvardman26-max@users.noreply.github.com"
+          git commit -qam "Thanksgiving launch: game listings out of beta" || echo "nothing to commit"
+          if [ "$DRY" = "yes" ]; then git push --dry-run && echo "dry run: push access OK"; else git push && gh workflow run fdroid-repo.yml --ref main; fi
