@@ -69,8 +69,9 @@ jobs:
           [ -n "$POD" ] || { echo "RunPod did not start a pod: $(echo "$R" | python3 -c "import json,sys; print([e.get('message') for e in json.load(sys.stdin).get('errors',[])])")"; exit 1; }
           echo "POD=$POD" >> "$GITHUB_ENV"; echo "pod started"
           URL="https://$POD-8080.proxy.runpod.net"; echo "THREED_MODEL_URL=$URL/v1" >> "$GITHUB_ENV"
-          for i in $(seq 1 150); do curl -fs -H "Authorization: Bearer $KEY" "$URL/v1/models" > /dev/null && { echo "engine up after $((i*10))s"; exit 0; }; sleep 10; done
-          echo "engine did not come up in 25 minutes"; exit 1
+          # /health answers 200 with "ok" only once the model has finished downloading and loading (503 while loading)
+          for i in $(seq 1 150); do H=$(curl -s -H "Authorization: Bearer $KEY" "$URL/health" || true); echo "$H" | grep -q '"ok"' && { echo "model loaded after $((i*10))s"; exit 0; }; sleep 10; done
+          echo "model did not finish loading in 25 minutes"; exit 1
       - name: 3D does the jobs
         if: ${{ !inputs.dry_run && inputs.confirm == 'SPEND' }}
         timeout-minutes: ${{ fromJSON(inputs.max_minutes) }}
