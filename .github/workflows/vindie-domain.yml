@@ -19,6 +19,7 @@ jobs:
           Z=$(api "https://api.cloudflare.com/client/v4/zones?name=$ZONE_NAME" | jq -r '.result[0].id // empty')
           [ -n "$Z" ] || { echo "::error::The token can't see the vindiesearch.com zone (it needs Zone: DNS Edit on all zones, or this zone added)"; exit 1; }
           echo "zone: found ($(api "https://api.cloudflare.com/client/v4/zones/$Z" | jq -r .result.status))"
+          echo "dns read: $(api "https://api.cloudflare.com/client/v4/zones/$Z/dns_records?per_page=1" | jq -c '{success, errors: [.errors[]?.message]}')"
           for H in vindiesearch.com www.vindiesearch.com; do
             R=$(api -X POST "https://api.cloudflare.com/client/v4/accounts/$ACCT/pages/projects/$PROJECT/domains" -d "{\"name\":\"$H\"}")
             echo "Pages $H: $(echo "$R" | jq -c '{success, errors: [.errors[]?.message]}')"
