@@ -1,0 +1,84 @@
+name: Frantz Vardman Shop app (Android)
+on:
+  workflow_dispatch:
+# Built here, in the public download repo, because GitHub Actions is free for public repositories.
+# The code is checked out from the private repo with BUILD_TOKEN; only the finished app is published.
+permissions:
+  contents: write
+  actions: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          repository: frantzvardman26-max/3D   # the private code; this public repo only runs the build (free minutes)
+          token: ${{ secrets.BUILD_TOKEN }}
+      - name: Build number (continues from the old private builds so phones accept the update)
+        run: echo "APP_BUILD_NUMBER=$GITHUB_RUN_NUMBER" >> "$GITHUB_ENV"
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Keep Gradle between builds
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/wrapper/dists
+            ~/.gradle/caches
+            ~/.m2/repository/org/robolectric
+          key: gradle-sa-${{ hashFiles('android/gradle/wrapper/gradle-wrapper.properties', 'android/gradle/libs.versions.toml', 'android/shopapp/build.gradle.kts') }}-r1
+          restore-keys: gradle-
+      - name: Build Vindie News
+        working-directory: android
+        run: |
+          sed -i '/aapt2FromMavenOverride/d' gradle.properties || true
+          chmod +x gradlew
+          for try in 1 2 3 4; do
+            if ./gradlew :shopapp:assembleDebug --no-daemon; then break; fi
+            if [ $try = 4 ]; then exit 1; fi
+            echo "Build attempt $try failed, waiting and trying again..."
+            sleep 45
+          done
+          cp shopapp/build/outputs/apk/debug/shopapp-debug.apk ../ShopApp.apk
+          ls -la ../ShopApp.apk
+      - name: Tests (screens on a simulated phone)
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          for i in 1 2 3; do ./gradlew :shopapp:testDebugUnitTest --no-daemon && break; [ $i = 3 ] && exit 1; echo "Tests could not run (often a download limit); trying again in 90s"; sleep 90; done
+      - name: Share screen-test screenshots for review (branch pd-screens)
+        if: always()
+        run: |
+          D=android/shopapp/build/screens
+          [ -d "$D" ] || { echo "No screenshots"; exit 0; }
+          T=$(mktemp -d); cp "$D"/*.png "$D"/*.pdf "$T"/ 2>/dev/null || true; ls "$T" | grep -q . || exit 0
+          cd "$T" && git init -q && git checkout -q -b pd-screens && git add -A
+          git -c user.name=ci -c user.email=ci@example.com commit -qm "screens"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" pd-screens || echo "::warning::Couldn't push screenshots"
+      - name: Public download page (frantzvardman26-max/ownit-app, tag "shopapp", never marked latest so Own It's updater is unaffected)
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          GH_TOKEN: ${{ secrets.BUILD_TOKEN }}
+        run: |
+          # Why: a link anyone can open on their phone to install the app before it's on Google Play.
+          if [ -z "$GH_TOKEN" ]; then echo "No publish token"; exit 0; fi
+          REPO=frantzvardman26-max/ownit-app
+          gh release delete shopapp -R "$REPO" -y --cleanup-tag || true
+          for f in ShopApp.apk; do [ -f "$f" ] && npx --yes wrangler@4 r2 object put "fv-app-vault/build/$(basename "$f")" --file "$f" --remote >/dev/null 2>&1 && echo "Saved to the private app vault: $(basename "$f")" || echo "::warning::Could not save $f to the private app vault"; done
+      - name: Publish the privacy policy page (public, on frantzvardman26-max/ownit-app)
+        env:
+          GH_TOKEN: ${{ secrets.BUILD_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then echo "No publish token"; exit 0; fi
+          REPO=frantzvardman26-max/ownit-app; F=SHOP_APP_PRIVACY.md
+          SHA=$(gh api "repos/$REPO/contents/$F" --jq .sha 2>/dev/null || true); echo "$SHA" | grep -Eq '^[0-9a-f]{40}$' || SHA=""
+          NEWB=$(base64 -w0 android/shopapp/docs/PRIVACY.md)
+          OLDB=$(gh api "repos/$REPO/contents/$F" --jq .content 2>/dev/null | tr -d '\n' || true)
+          if [ "$NEWB" != "$OLDB" ]; then gh api -X PUT "repos/$REPO/contents/$F" -f message="Shop app privacy policy" -f content="$NEWB" ${SHA:+-f sha="$SHA"} >/dev/null || echo "::warning::Couldn't publish the policy"; fi
+      - name: Refresh the F-Droid library so phones see this update
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run fdroid-repo.yml -R "$GITHUB_REPOSITORY" || echo "::warning::Couldn't start the F-Droid refresh"
