@@ -1,0 +1,44 @@
+name: Point vindiesearch.com at VINDIE
+# Adds vindiesearch.com and www.vindiesearch.com to the shop's Cloudflare Pages project (where the VINDIE search page lives),
+# creates the DNS records in the vindiesearch.com zone, and sends the front door (/) to the search page (/search/).
+# Log shows only success flags and statuses.
+on: {workflow_dispatch: {}}
+permissions: {contents: read}
+jobs:
+  point:
+    runs-on: ubuntu-latest
+    env:
+      CF: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      ACCT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      ZONE_NAME: vindiesearch.com
+      PROJECT: frantz-vardman-shop
+    steps:
+      - name: Domains, DNS and the front door
+        run: |
+          api() { curl -s -H "Authorization: Bearer $CF" -H "Content-Type: application/json" "$@"; }
+          Z=$(api "https://api.cloudflare.com/client/v4/zones?name=$ZONE_NAME" | jq -r '.result[0].id // empty')
+          [ -n "$Z" ] || { echo "::error::The token can't see the vindiesearch.com zone (it needs Zone: DNS Edit on all zones, or this zone added)"; exit 1; }
+          echo "zone: found ($(api "https://api.cloudflare.com/client/v4/zones/$Z" | jq -r .result.status))"
+          for H in vindiesearch.com www.vindiesearch.com; do
+            R=$(api -X POST "https://api.cloudflare.com/client/v4/accounts/$ACCT/pages/projects/$PROJECT/domains" -d "{\"name\":\"$H\"}")
+            echo "Pages $H: $(echo "$R" | jq -c '{success, errors: [.errors[]?.message]}')"
+            N=$([ "$H" = "$ZONE_NAME" ] && echo "@" || echo "www")
+            if [ "$(api "https://api.cloudflare.com/client/v4/zones/$Z/dns_records?name=$H" | jq '[.result[] | select(.type=="CNAME" or .type=="A" or .type=="AAAA")] | length')" = "0" ]; then
+              D=$(api -X POST "https://api.cloudflare.com/client/v4/zones/$Z/dns_records" -d "{\"type\":\"CNAME\",\"name\":\"$N\",\"content\":\"$PROJECT.pages.dev\",\"proxied\":true,\"comment\":\"VINDIE: added by workflow\"}")
+              echo "DNS $H: $(echo "$D" | jq -c '{success, errors: [.errors[]?.message]}')"
+            else
+              IDS=$(api "https://api.cloudflare.com/client/v4/zones/$Z/dns_records?name=$H" | jq -r '.result[] | select(.type=="CNAME" or .type=="A" or .type=="AAAA") | .id')
+              for I in $IDS; do api -X DELETE "https://api.cloudflare.com/client/v4/zones/$Z/dns_records/$I" > /dev/null; done
+              D=$(api -X POST "https://api.cloudflare.com/client/v4/zones/$Z/dns_records" -d "{\"type\":\"CNAME\",\"name\":\"$N\",\"content\":\"$PROJECT.pages.dev\",\"proxied\":true,\"comment\":\"VINDIE: added by workflow (replaced Porkbun parking)\"}")
+              echo "DNS $H (replaced parking): $(echo "$D" | jq -c '{success, errors: [.errors[]?.message]}')"
+            fi
+          done
+          # Front door: / on either host goes to /search/
+          RS=$(cat <<JSON
+          {"rules":[{"action":"redirect","expression":"(http.host in {\"vindiesearch.com\" \"www.vindiesearch.com\"} and http.request.uri.path eq \"/\")","description":"VINDIE front door","action_parameters":{"from_value":{"status_code":302,"target_url":{"value":"https://www.vindiesearch.com/search/"},"preserve_query_string":true}}}]}
+          JSON
+          )
+          R=$(api -X PUT "https://api.cloudflare.com/client/v4/zones/$Z/rulesets/phases/http_request_dynamic_redirect/entrypoint" -d "$RS")
+          echo "front door rule: $(echo "$R" | jq -c '{success, errors: [.errors[]?.message]}')"
+          sleep 30
+          for H in vindiesearch.com www.vindiesearch.com; do api "https://api.cloudflare.com/client/v4/accounts/$ACCT/pages/projects/$PROJECT/domains/$H" | jq -c "{host: \"$H\", status: .result.status}"; done
