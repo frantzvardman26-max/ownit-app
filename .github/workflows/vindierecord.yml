@@ -47,7 +47,7 @@ jobs:
         run: |
           chmod +x gradlew
           for i in 1 2 3; do ./gradlew :vindierecord:testDebugUnitTest --no-daemon && break; [ $i = 3 ] && exit 1; echo "Tests could not run (often a download limit); trying again in 90s"; sleep 90; done
-      - name: Save to the private app vault only (owner-only app: no public page, no F-Droid)
+      - name: "Save to the private app vault only (owner-only app, no public page, no F-Droid)"
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
