@@ -1,0 +1,58 @@
+name: Vindie Record (Android, owner only)
+on:
+  workflow_dispatch:
+# Built here, in the public download repo, because GitHub Actions is free for public repositories.
+# The code is checked out from the private repo with BUILD_TOKEN; only the finished app is published.
+permissions:
+  contents: write
+  actions: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          repository: frantzvardman26-max/3D   # the private code; this public repo only runs the build (free minutes)
+          token: ${{ secrets.BUILD_TOKEN }}
+      - name: Build number (continues from the old private builds so phones accept the update)
+        run: echo "APP_BUILD_NUMBER=$GITHUB_RUN_NUMBER" >> "$GITHUB_ENV"
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Keep Gradle between builds
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/wrapper/dists
+            ~/.gradle/caches
+            ~/.m2/repository/org/robolectric
+          key: gradle-vr-${{ hashFiles('android/gradle/wrapper/gradle-wrapper.properties', 'android/gradle/libs.versions.toml', 'android/vindierecord/build.gradle.kts') }}-r1
+          restore-keys: gradle-
+      - name: Build Vindie Record
+        working-directory: android
+        run: |
+          sed -i '/aapt2FromMavenOverride/d' gradle.properties || true
+          chmod +x gradlew
+          for try in 1 2 3 4; do
+            if ./gradlew :vindierecord:assembleDebug --no-daemon; then break; fi
+            if [ $try = 4 ]; then exit 1; fi
+            echo "Build attempt $try failed, waiting and trying again..."
+            sleep 45
+          done
+          cp vindierecord/build/outputs/apk/debug/vindierecord-debug.apk ../VindieRecord.apk
+          ls -la ../VindieRecord.apk; sha256sum ../VindieRecord.apk
+      - name: Tests (encryption, private-field skipping, backup and restore)
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          for i in 1 2 3; do ./gradlew :vindierecord:testDebugUnitTest --no-daemon && break; [ $i = 3 ] && exit 1; echo "Tests could not run (often a download limit); trying again in 90s"; sleep 90; done
+      - name: Save to the private app vault only (owner-only app: no public page, no F-Droid)
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          GH_TOKEN: ${{ secrets.BUILD_TOKEN }}
+        run: |
+          # Owner-only: the file goes to the private vault and nowhere public.
+          if [ -z "$GH_TOKEN" ]; then echo "No publish token"; exit 0; fi
+          for f in VindieRecord.apk; do [ -f "$f" ] && npx --yes wrangler@4 r2 object put "fv-app-vault/build/$(basename "$f")" --file "$f" --remote >/dev/null 2>&1 && echo "Saved to the private app vault: $(basename "$f")" || echo "::warning::Could not save $f to the private app vault"; done
