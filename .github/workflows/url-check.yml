@@ -1,0 +1,14 @@
+name: Check how an address answers (status, redirect, title)
+on:
+  workflow_dispatch:
+    inputs:
+      url: {description: 'Address to check', required: true}
+permissions: {contents: read}
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          U="${{ inputs.url }}"; echo "$U" | grep -Eq '^https?://[A-Za-z0-9.-]+(/[A-Za-z0-9._/?=&-]*)?$' || { echo "bad address"; exit 1; }
+          curl -s -o /dev/null -w "status %{http_code} · redirect: %{redirect_url}\n" "$U"
+          curl -sL "$U" | grep -o "<title>[^<]*" | head -1
