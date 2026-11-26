@@ -20,6 +20,7 @@ jobs:
           node ci/helpers/jscheck.js
           npm i --no-save --silent playwright@1.63.0 && npx playwright install --with-deps chromium > /dev/null
           node ci/helpers/gamesmoke.js giants
+          node ci/helpers/screencheck.js giants   # the opening on 13 screen sizes (phones, tablets, desktop): nothing cut off, stacked or overlapping, or no build
       - name: Build number (continues from the old private builds so phones accept the update)
         run: echo "APP_BUILD_NUMBER=$GITHUB_RUN_NUMBER" >> "$GITHUB_ENV"
       - uses: actions/setup-java@v5

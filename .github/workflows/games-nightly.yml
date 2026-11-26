@@ -22,10 +22,13 @@ jobs:
         id: smoke
         run: |
           cd ci/helpers && npm i --no-save --silent playwright@1.63.0 && npx playwright install --with-deps chromium > /dev/null
-          SMOKE_BASE=https://shop.frantzmichaelsthilairevardman.com SMOKE_SUMMARY=summary.txt node gamesmoke.js && echo "ok=1" >> "$GITHUB_OUTPUT" || echo "ok=0" >> "$GITHUB_OUTPUT"
+          ok=1; SMOKE_BASE=https://shop.frantzmichaelsthilairevardman.com SMOKE_SUMMARY=summary.txt node gamesmoke.js || ok=0
+          # the live opening on 13 screen sizes too (phones, tablets, desktop)
+          SMOKE_BASE=https://shop.frantzmichaelsthilairevardman.com SMOKE_SUMMARY=screens.txt node screencheck.js || { ok=0; cat screens.txt >> summary.txt; }
+          echo "ok=$ok" >> "$GITHUB_OUTPUT"
       - name: Alert the Master Panel if a game crashed
         if: steps.smoke.outputs.ok == '0'
         run: |
           s=$(head -c 250 ci/helpers/summary.txt | tr -d "\r\n" | sed "s/'/''/g"); [ -n "$s" ] || s="the check could not run"
-          npx --yes wrangler@3 d1 execute shop-downloads --remote --command "CREATE TABLE IF NOT EXISTS owner_alerts (id INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT, title TEXT, message TEXT, tags TEXT, click TEXT, seen INTEGER DEFAULT 0); INSERT INTO owner_alerts (at, title, message, tags, click) VALUES (strftime('%Y-%m-%dT%H:%M:%fZ','now'), 'Nightly game check: a game crashed', 'Crashed: $s', 'warning', 'https://shop.frantzmichaelsthilairevardman.com/portfolio');" > out.txt 2>&1 && echo "alert sent" || { grep -iE "error" out.txt | head -3; exit 1; }
+          npx --yes wrangler@3 d1 execute shop-downloads --remote --command "CREATE TABLE IF NOT EXISTS owner_alerts (id INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT, title TEXT, message TEXT, tags TEXT, click TEXT, seen INTEGER DEFAULT 0); INSERT INTO owner_alerts (at, title, message, tags, click) VALUES (strftime('%Y-%m-%dT%H:%M:%fZ','now'), 'Nightly game check: a game crashed or a screen is cut off', 'Crashed: $s', 'warning', 'https://shop.frantzmichaelsthilairevardman.com/portfolio');" > out.txt 2>&1 && echo "alert sent" || { grep -iE "error" out.txt | head -3; exit 1; }
           exit 1   # also mark the run red
