@@ -22,3 +22,7 @@ Bombs & Bullion collects no personal information from anyone, including children
 
 ## Contact
 Questions: frantzvardman@mail2one.com
+
+## Reminders
+
+The game can remind you on this phone when your Ember is full, and 4 hours before it would be lost. The reminder is set and shown by the phone itself: no server, no push service, and nothing about you is sent anywhere. Android asks your permission first, and you can turn reminders off any time in the phone's notification settings for this game. Kids mode sets no reminders.
