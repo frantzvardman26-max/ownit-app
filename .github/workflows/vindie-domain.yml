@@ -17,7 +17,9 @@ jobs:
         run: |
           api() { curl -s -H "Authorization: Bearer $CF" -H "Content-Type: application/json" "$@"; }
           Z=$(api "https://api.cloudflare.com/client/v4/zones?name=$ZONE_NAME" | jq -r '.result[0].id // empty')
-          [ -n "$Z" ] || { echo "::error::The token can't see the vindiesearch.com zone (it needs Zone: DNS Edit on all zones, or this zone added)"; exit 1; }
+          [ -n "$Z" ] || { echo "::error::The token can't see the vindiesearch.com zone"; exit 1; }
+          for H in vindiesearch.com www.vindiesearch.com; do R=$(api -X POST "https://api.cloudflare.com/client/v4/accounts/$ACCT/pages/projects/$PROJECT/domains" -d "{\"name\":\"$H\"}"); echo "Pages $H: $(echo "$R" | jq -c '{success, errors: [.errors[]?.message]}')"; done
+          if [ "$(api "https://api.cloudflare.com/client/v4/zones/$Z/dns_records?per_page=1" | jq -r .success)" != "true" ]; then echo "dns: the token can't edit this zone's DNS. Add the two records in the Cloudflare dashboard (Workers & Pages, frantz-vardman-shop, Custom domains, Activate)."; for H in vindiesearch.com www.vindiesearch.com; do api "https://api.cloudflare.com/client/v4/accounts/$ACCT/pages/projects/$PROJECT/domains/$H" | jq -c "{host: \"$H\", status: .result.status}"; done; exit 0; fi
           echo "zone: found ($(api "https://api.cloudflare.com/client/v4/zones/$Z" | jq -r .result.status))"
           echo "dns read: $(api "https://api.cloudflare.com/client/v4/zones/$Z/dns_records?per_page=1" | jq -c '{success, errors: [.errors[]?.message]}')"
           for H in vindiesearch.com www.vindiesearch.com; do
