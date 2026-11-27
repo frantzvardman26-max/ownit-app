@@ -4,7 +4,7 @@ name: F-Droid app library
 # The library is rebuilt after any app build finishes (no daily run: it saves free build minutes).
 on:
   workflow_run:
-    workflows: ["Build Own It", "Build Safe to Spend", "Build Lead Hunter", "Build Safe Pocket", "Build Bombs & Bullion", "Build Pure Beats", "Build Signal Fire", "Build Clear Check", "Build Rex Voice", "Build Free Lane", "Build Bayou Burger", "Build Cave Hunt", "Build Monkey Money", "Build J & F Studios"]
+    workflows: ["Build Own It", "Build Safe to Spend", "Build Lead Hunter", "Build Safe Pocket", "Build Bombs & Bullion", "Build Pure Beats", "Build Signal Fire", "Build Clear Check", "Build Rex Voice", "Build Free Lane", "Build Bayou Burger", "Build Cave Hunt", "Build Monkey Money", "Build J & F Studios", "Build Vindie Dungeon Crawler"]
     types: [completed]
   workflow_dispatch:
 permissions:

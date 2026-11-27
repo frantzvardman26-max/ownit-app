@@ -57,7 +57,7 @@ jobs:
       - name: Install image tools (thumbnails, icons, press kit)
         run: pip install --quiet pillow pypdf && (fc-list | grep -q DejaVuSerif-Bold || sudo apt-get install -y -qq fonts-dejavu-core) && (which ffmpeg || (sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg))
       - name: Build the shop (site + products packed into the download function)
-        run: python3 shop/tools/build_templates.py && python3 shop/tools/stamp_owner.py shop/site shop/products && python3 shop/tools/build_site.py && python3 shop/tools/no_hire_check.py
+        run: node shop/tools/release_notes.js && python3 shop/tools/build_templates.py && python3 shop/tools/stamp_owner.py shop/site shop/products && python3 shop/tools/build_site.py && python3 shop/tools/no_hire_check.py
       - name: Publish to Cloudflare Pages
         run: |
           if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then echo "::warning::Cloudflare secrets not added yet, so the shop isn't published."; exit 0; fi
@@ -66,6 +66,11 @@ jobs:
           bash ../tools/connect_download_log.sh || echo "::warning::Download log not connected (see step output). Downloads still work."
           bash ../tools/connect_app_vault.sh frantz-vardman-shop || echo "::warning::App vault not connected (see step output). Downloads fall back to the public copies."
           npx --yes wrangler@3 pages deploy . --project-name frantz-vardman-shop --branch main --commit-dirty=true
+      - name: Post what changed (Vindie News + forum News & Announcements, each release once)
+        if: success()
+        run: |
+          sleep 20
+          for u in "api/news" "api/forum?home=1"; do curl -fsS -o /dev/null -w "$u %{http_code}\n" "https://shop.frantzmichaelsthilairevardman.com/$u" || echo "::warning::$u didn't answer"; done
       - name: Tell search engines about new pages (IndexNow, no account)
         if: success()
         run: |
