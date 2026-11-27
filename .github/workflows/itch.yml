@@ -25,7 +25,7 @@ jobs:
       - name: Find the itch account for this key
         run: |
           [ -n "$BUTLER_API_KEY" ] || { echo "ITCH_API_KEY secret is missing"; exit 1; }
-          U=$(curl -s "https://itch.io/api/1/$BUTLER_API_KEY/me" | jq -r '.user.username // empty')
+          U=$(curl -s "https://itch.io/api/1/$BUTLER_API_KEY/me" | jq -r '.user.url // empty' | sed -E 's#^https?://([^.]+)\.itch\.io.*#\1#')
           [ -n "$U" ] || { echo "itch did not accept the key"; exit 1; }
           echo "ITCH_USER=$U" >> "$GITHUB_ENV"; echo "itch account: $U"
       - name: Build and push
