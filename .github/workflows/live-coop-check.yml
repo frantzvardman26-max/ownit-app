@@ -8,6 +8,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: |
-          code=$(curl -s -o body.txt -w '%{http_code}' --max-time 15 -H 'Upgrade: websocket' -H 'Connection: Upgrade' -H 'Sec-WebSocket-Version: 13' -H 'Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==' 'https://shop.frantzmichaelsthilairevardman.com/api/live?code=CHECK1')
+          code=$(curl --http1.1 -s -o body.txt -w '%{http_code}' --max-time 15 -H 'Upgrade: websocket' -H 'Connection: Upgrade' -H 'Sec-WebSocket-Version: 13' -H 'Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==' 'https://shop.frantzmichaelsthilairevardman.com/api/live?code=CHECK1')
           echo "status $code: $(head -c 80 body.txt)"
           [ "$code" = "401" ] && echo "live co-op server: connected" || { echo "live co-op server: NOT connected"; exit 1; }
