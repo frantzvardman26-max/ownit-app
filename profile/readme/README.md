@@ -11,7 +11,7 @@
 
 <br><br>
 
-<picture><source media="(prefers-color-scheme: light)" srcset="img/stats-light.svg"><img src="img/stats-dark.svg" alt="18 apps and games, 128 products and services, 205 works fingerprinted, zero trackers" width="100%"></picture>
+<picture><source media="(prefers-color-scheme: light)" srcset="img/stats-light.svg"><img src="img/stats-dark.svg" alt="18 apps and games, 149 products and services, 205 works fingerprinted, zero trackers" width="100%"></picture>
 
 </div>
 
@@ -96,7 +96,7 @@ Original beats as **AceThe_Kid**, made with a beat engine I wrote myself: 808s, 
 - **My own VPN server.** WireGuard with its own DNS and ad blocking, signed over-the-air updates, a self-healing watchdog and uptime checks.
 - **Edge backend, no trackers.** The shop runs on Cloudflare with passkey sign-in; originals stay encrypted in a vault, with nightly backups in two places.
 
-Built from my phone. Every change is tested on a private practice copy before it goes live.
+Every change is tested on a private practice copy before it goes live.
 
 <picture><source media="(prefers-color-scheme: light)" srcset="img/divider-light.svg"><img src="img/divider-dark.svg" alt="" width="100%"></picture>
 
