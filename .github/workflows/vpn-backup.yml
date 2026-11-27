@@ -19,5 +19,5 @@ jobs:
           S=$(openssl pkeyutl -sign -inkey "$K" -rawin -in "$RUNNER_TEMP/m" | base64 -w0); rm -f "$K"
           code=$(curl -sk -o /dev/null -w '%{http_code}' -X POST "https://$SERVER/api/backup" -H "X-Name: $N" -H "X-Sig: $S" -H 'Content-Type: application/octet-stream' --data-binary @"$F" --max-time 300 || echo 000)
           echo "server said HTTP $code"
-          if [ "$code" = 000 ]; then echo "::warning::The Vindie VPN server didn't answer. Restart it from the Vultr dashboard."; exit 0; fi
+          case "$code" in 000*) code=000;; esac; if [ "$code" = 000 ]; then echo "::warning::The Vindie VPN server didn't answer. Restart it from the Vultr dashboard."; exit 0; fi
           [ "$code" = 200 ]
