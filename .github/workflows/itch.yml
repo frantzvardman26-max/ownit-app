@@ -35,5 +35,6 @@ jobs:
           for g in ${{ inputs.games }}; do
             [ -n "${SLUG[$g]:-}" ] || { echo "unknown game $g"; exit 1; }
             bash tools/itch_build.sh "$g" "$RUNNER_TEMP/itch"
-            butler push "$RUNNER_TEMP/itch/$g.zip" "$ITCH_USER/${SLUG[$g]}:html5" --userversion "$VER"
+            if butler push "$RUNNER_TEMP/itch/$g.zip" "$ITCH_USER/${SLUG[$g]}:html5" --userversion "$VER"; then echo "PUSHED $g"; else echo "FAILED $g"; FAIL=1; fi
           done
+          [ -z "${FAIL:-}" ]
