@@ -19,7 +19,8 @@ jobs:
           token: ${{ secrets.BUILD_TOKEN }}
           sparse-checkout: live
       - name: Put the live server online
-        run: cd live && npx --yes wrangler@4 deploy > ../deploy.log 2>&1 && echo "server online: yes" || { echo "server online: no"; grep -oE '(Authentication error|not authorized|[A-Za-z ]*permission[A-Za-z ]*|code: [0-9]+)' ../deploy.log | sort -u | head -5; exit 1; }
+        run: |
+          cd live && npx --yes wrangler@4 deploy > ../deploy.log 2>&1 && echo "server online: yes" || { echo "server online: no"; grep -oE '(Authentication error|not authorized|[A-Za-z ]*permission[A-Za-z ]*|code: [0-9]+)' ../deploy.log | sort -u | head -5; exit 1; }
       - name: Connect it to the shop
         run: |
           api() { curl -sS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" -H 'Content-Type: application/json' "$@"; }
@@ -28,4 +29,5 @@ jobs:
           B=https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/frantz-vardman-shop
           api -X PATCH $B -d "$(jq -n --arg ns "$NS" '{deployment_configs:{production:{durable_object_namespaces:{LIVE:{namespace_id:$ns}}},preview:{durable_object_namespaces:{LIVE:{namespace_id:$ns}}}}}')" | jq -r '"shop connected: \(.success)"'
       - name: Redeploy the shop so it picks up the connection
-        run: gh api -X POST repos/$R/actions/workflows/shop-verify.yml/dispatches -f ref=main && echo "shop redeploy started"
+        run: |
+          gh api -X POST repos/$R/actions/workflows/shop-verify.yml/dispatches -f ref=main && echo "shop redeploy started"
