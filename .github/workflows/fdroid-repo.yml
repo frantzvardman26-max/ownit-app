@@ -104,7 +104,7 @@ jobs:
           m com.frantzvardman.purebeats Multimedia "Make beats from scratch: drum pads and a live step grid" "Beat Pad: 8 pads, a 16-step grid that plays live, tempo, swing, 3 kits and 4 patterns. Plus an idea maker. Every sound is made on your phone (no samples). Export the beat with stems and a certificate of originality." "Pure Beats"
           m com.frantzvardman.signalfire Connectivity "Stay in touch with people nearby when there's no signal" "Phone-to-phone chat, supplies board, shared places and sourced first aid. No internet needed." "Signal Fire"
           m com.frantzvardman.clearcheck Office "A plain-English check-up for your business" "Paperwork, red flags, money and plain talk: a score, a fix list with official sources and a PDF report." "Clear Check"
-          m com.frantzvardman.freelane System "A free app store with no gatekeepers" "Install and update free apps. Every download is checked against its SHA-256 fingerprint before it installs. No account, no ads, nothing collected." "Free Lane"
+          m com.frantzvardman.freelane System "A free app store with no gatekeepers" "Install and update free apps. Every download is checked against its SHA-256 fingerprint before it installs. Sign in once, no ads." "Free Lane"
           m com.bayouburgerllc.app Internet "Order Bayou Burger: gourmet burgers with southern soul, Houston" "Browse the full Bayou Burger menu with prices and order delivery on DoorDash, Uber Eats, Grubhub or Instacart. Open 24 hours. No account needed." "Bayou Burger" "Bayou Burger LLC" "https://bayouburgerllc.com"
           m com.frantzvardman.lovly Money "Credit repair you do yourself: Learn, Make, Record, Send" "Learn your credit rights, make dispute and debt-validation letters that cite the exact law, track every legal deadline, and print or share them. Free, no account, no ads, no internet permission." "Lovly: Credit Repair"
           m com.frantzvardman.reclaim Security "Protect your name, number and peace" "Log evidence of harassment or misuse of your name and number, write takedown, data-broker and stop-contact letters that state the law accurately, and find the right help. Free, no account, no internet permission." "Reclaim: Name & Privacy Defense"
@@ -157,7 +157,7 @@ jobs:
           cat > config.yml <<EOF
           repo_url: https://raw.githubusercontent.com/frantzvardman26-max/ownit-app/fdroid/repo
           repo_name: Frantz Vardman Apps
-          repo_description: Free offline Android apps by Frantz Vardman. No accounts, no ads.
+          repo_description: Apps by Frantz Vardman. Get them through Free Lane.
           repo_keyalias: fdroid-repo
           keystore: keystore.p12
           keystorepass: "$PW"
@@ -169,6 +169,19 @@ jobs:
           ls repo | head -30
           FP=$(keytool -list -v -keystore keystore.p12 -storepass:env PW -alias fdroid-repo | grep 'SHA256:' | head -1 | sed 's/.*SHA256: //; s/://g')
           echo "FINGERPRINT=$FP" >> $GITHUB_ENV
+          # A second, Free-Lane-only library (same key, same fingerprint). Players add this one to F-Droid, Droid-ify,
+          # Neo Store or Obtainium: it holds only the public front door, so nothing listed there is locked.
+          FL=$(ls repo/FreeLane.apk 2>/dev/null || true)
+          if [ -n "$FL" ]; then
+            rm -rf ../fl; mkdir -p ../fl/repo ../fl/metadata
+            cp "$FL" ../fl/repo/
+            cp -r metadata/com.frantzvardman.freelane* ../fl/metadata/ 2>/dev/null || true
+            cp keystore.p12 ../fl/
+            sed -e 's#/fdroid/repo$#/fdroid/freelane/repo#' -e 's#^repo_name: .*#repo_name: Free Lane#' \
+                -e 's#^repo_description: .*#repo_description: Free Lane, the free app store by Frantz Vardman. Sign in inside Free Lane to get every app.#' config.yml > ../fl/config.yml
+            chmod 600 ../fl/config.yml
+            ( cd ../fl && fdroid update --create-metadata && rm -f keystore.p12 config.yml && ls repo )
+          else echo "::warning::No Free Lane APK for the Free Lane library"; fi
           rm -f keystore.p12 config.yml
       - name: Extras for Free Lane (apps the library can't hold)
         run: |
@@ -219,19 +232,22 @@ jobs:
           # App files go to the private app vault (repo/<file>); the public branch keeps only the catalog, icons and screenshots.
           n=0; for f in fd/repo/*.apk; do [ -f "$f" ] || continue; npx --yes wrangler@4 r2 object put "fv-app-vault/repo/$(basename "$f")" --file "$f" --remote >/dev/null 2>&1 && n=$((n+1)) || { echo "::error::Couldn't save $(basename "$f") to the private vault"; exit 1; }; done; echo "library files saved privately: $n"
           T=$(mktemp -d); cp -r fd/repo "$T/repo"; find "$T/repo" -maxdepth 1 \( -name '*.apk' -o -name '*.apk.asc' -o -name '*.idsig' \) ! -name 'FreeLane.apk*' -delete
+          [ -d fl/repo ] && { mkdir -p "$T/freelane"; cp -r fl/repo "$T/freelane/repo"; echo "Free Lane library: $(ls "$T/freelane/repo" | wc -l) files"; }
           # Free Lane itself stays public: it's the front door (older Free Lane apps update to the signed-in version from here); every other app needs a sign-in.
           cat > "$T/README.md" <<EOF
-          # Frantz Vardman Apps (F-Droid library)
+          # Free Lane
           
-          In F-Droid: Settings > Repositories > + and paste:
+          In F-Droid, Droid-ify or Neo Store: Settings > Repositories > + and paste:
           
-          https://raw.githubusercontent.com/frantzvardman26-max/ownit-app/fdroid/repo?fingerprint=$FINGERPRINT
+          https://raw.githubusercontent.com/frantzvardman26-max/ownit-app/fdroid/freelane/repo?fingerprint=$FINGERPRINT
+          
+          Full library (used inside Free Lane): https://raw.githubusercontent.com/frantzvardman26-max/ownit-app/fdroid/repo?fingerprint=$FINGERPRINT
           EOF
           cd "$T" && git init -q && git checkout -q -b fdroid && git add -A
           git -c user.name=github-actions -c user.email=actions@github.com commit -qm "F-Droid library, built from ${GITHUB_SHA::7}"
           # Why force and a fresh history: APKs are big; keeping only the latest build keeps the library small.
           git push -qf "https://x-access-token:${GH_TOKEN}@github.com/frantzvardman26-max/ownit-app.git" fdroid
-          echo "Add in F-Droid: https://raw.githubusercontent.com/frantzvardman26-max/ownit-app/fdroid/repo?fingerprint=$FINGERPRINT"
+          echo "Add in F-Droid: https://raw.githubusercontent.com/frantzvardman26-max/ownit-app/fdroid/freelane/repo?fingerprint=$FINGERPRINT"
       - name: Refresh the Free Lane website with the new catalog
         if: success()
         env:
