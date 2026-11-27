@@ -1,0 +1,39 @@
+name: Push games to itch.io
+on:
+  workflow_dispatch:
+    inputs:
+      games:
+        description: "Games to push (space separated): vdc giants cave monkey play"
+        default: "vdc"
+permissions:
+  contents: read
+jobs:
+  push:
+    runs-on: ubuntu-latest
+    env:
+      BUTLER_API_KEY: ${{ secrets.ITCH_API_KEY }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          repository: frantzvardman26-max/3D
+          token: ${{ secrets.BUILD_TOKEN }}
+      - name: Get butler (itch.io's upload tool)
+        run: |
+          curl -sL -o butler.zip https://broth.itch.zone/butler/linux-amd64/LATEST/archive/default
+          unzip -q butler.zip -d "$RUNNER_TEMP/butler" && chmod +x "$RUNNER_TEMP/butler/butler"
+          echo "$RUNNER_TEMP/butler" >> "$GITHUB_PATH"
+      - name: Find the itch account for this key
+        run: |
+          [ -n "$BUTLER_API_KEY" ] || { echo "ITCH_API_KEY secret is missing"; exit 1; }
+          U=$(curl -s "https://itch.io/api/1/$BUTLER_API_KEY/me" | jq -r '.user.username // empty')
+          [ -n "$U" ] || { echo "itch did not accept the key"; exit 1; }
+          echo "ITCH_USER=$U" >> "$GITHUB_ENV"; echo "itch account: $U"
+      - name: Build and push
+        run: |
+          declare -A SLUG=( [vdc]=vindie-dungeon-crawler [giants]=giants [cave]=cave-hunt [monkey]=monkey-money [play]=bombs-and-bullion )
+          VER=$(date -u +%Y.%m.%d.%H%M)
+          for g in ${{ inputs.games }}; do
+            [ -n "${SLUG[$g]:-}" ] || { echo "unknown game $g"; exit 1; }
+            bash tools/itch_build.sh "$g" "$RUNNER_TEMP/itch"
+            butler push "$RUNNER_TEMP/itch/$g.zip" "$ITCH_USER/${SLUG[$g]}:html5" --userversion "$VER"
+          done
