@@ -1,0 +1,31 @@
+name: Live co-op server (VDC's party dungeon on Cloudflare)
+# Puts live/worker.js online (a Durable Object per party: the server holds the floor and moves the monsters), then connects
+# it to the shop as the LIVE binding that /api/live uses, and redeploys the shop. Reached only through the shop.
+# The public log shows yes/no results only.
+on: workflow_dispatch
+permissions: {contents: read, actions: write}
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      GH_TOKEN: ${{ secrets.BUILD_TOKEN }}
+      R: frantzvardman26-max/ownit-app
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          repository: frantzvardman26-max/3D
+          token: ${{ secrets.BUILD_TOKEN }}
+          sparse-checkout: live
+      - name: Put the live server online
+        run: cd live && npx --yes wrangler@4 deploy > ../deploy.log 2>&1 && echo "server online: yes" || { echo "server online: no"; grep -oE '(Authentication error|not authorized|[A-Za-z ]*permission[A-Za-z ]*|code: [0-9]+)' ../deploy.log | sort -u | head -5; exit 1; }
+      - name: Connect it to the shop
+        run: |
+          api() { curl -sS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" -H 'Content-Type: application/json' "$@"; }
+          NS=$(api "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/durable_objects/namespaces?per_page=100" | jq -r '.result[] | select(.script == "vdc-live" and .class == "Dungeon") | .id' | head -1)
+          [ -n "$NS" ] || { echo "found the dungeon storage: no"; exit 1; }; echo "found the dungeon storage: yes"
+          B=https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/frantz-vardman-shop
+          api -X PATCH $B -d "$(jq -n --arg ns "$NS" '{deployment_configs:{production:{durable_object_namespaces:{LIVE:{namespace_id:$ns}}},preview:{durable_object_namespaces:{LIVE:{namespace_id:$ns}}}}}')" | jq -r '"shop connected: \(.success)"'
+      - name: Redeploy the shop so it picks up the connection
+        run: gh api -X POST repos/$R/actions/workflows/shop-verify.yml/dispatches -f ref=main && echo "shop redeploy started"
