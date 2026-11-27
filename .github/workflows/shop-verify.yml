@@ -58,6 +58,8 @@ jobs:
         run: pip install --quiet pillow pypdf && (fc-list | grep -q DejaVuSerif-Bold || sudo apt-get install -y -qq fonts-dejavu-core) && (which ffmpeg || (sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg))
       - name: Build the shop (site + products packed into the download function)
         run: node shop/tools/release_notes.js && python3 shop/tools/build_templates.py && python3 shop/tools/stamp_owner.py shop/site shop/products && python3 shop/tools/build_site.py && python3 shop/tools/no_hire_check.py
+      - name: Guard - co-op works end to end (two players on a local copy, before anything goes live)
+        run: bash ci/helpers/cooptest.sh shop/dist   # sign-up screen, hero names, join/full/leave, same floors, friends visible, shared kills and bosses, verify-email offers
       - name: Publish to Cloudflare Pages
         run: |
           if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then echo "::warning::Cloudflare secrets not added yet, so the shop isn't published."; exit 0; fi
